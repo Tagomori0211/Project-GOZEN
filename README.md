@@ -7,10 +7,13 @@ AI同士の対立を通じて、最高のエンジニアリング決定を導く
 
 ---
 このプロジェクトは以下のリポジトリに触発されて開発されました。
+
 偉大な先人に敬意を。
+
 [yohey-w/multi-agent-shogun](https://github.com/yohey-w/multi-agent-shogun)
 
 ### zenn.dev記事
+
 https://zenn.dev/shio_shoppaize/articles/5fee11d03a11a1
 ---
 
