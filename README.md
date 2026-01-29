@@ -131,6 +131,6 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
 
 ## 参考資料
 
-- おしおさんの [multi-agent-shogun](https://zenn.dev/shio_shoppaize/articles/5fee11d03a11a1)（tmux+YAML統制）
+- おしおさんの記事 [multi-agent-shogun](https://zenn.dev/shio_shoppaize/articles/5fee11d03a11a1)（tmux+YAML統制）
 - Pixivミーム「陸軍として海軍の提案に反対である」
 - https://dic.pixiv.net/a/陸軍として海軍の提案に反対である
