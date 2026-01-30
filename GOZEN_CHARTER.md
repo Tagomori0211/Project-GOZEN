@@ -43,7 +43,7 @@ AI開発における最大の敵は **「グループシンク」** です。
   │       │
   │       └─ 艦長（kancho）
   │           │
-  │           └─ 水兵（suihei）×N
+  │           └─ 海兵（kaihei）×N
   │
   └─ 陸軍参謀（rikugun_sanbou）← Gemini
       │

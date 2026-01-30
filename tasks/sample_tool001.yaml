@@ -1,0 +1,37 @@
+# tasks/TOOL-001_monitoring_solution.yaml
+# サンプルタスク: 監視ツールの導入
+
+task_id: "TOOL-001"
+title: "監視ツールの導入"
+created_at: "2026-02-01"
+status: "pending"
+
+mission: |
+  本番環境の可観測性を向上させるため
+  適切な監視ツールを選定・導入せよ
+
+requirements:
+  - メトリクス収集
+  - ログ集約
+  - アラート機能
+  - ダッシュボード機能
+
+constraints:
+  budget: "月額 $1000 以内"
+  timeline: "1ヶ月以内に導入"
+  resources: "SREエンジニア1名、週10時間"
+  operator: "少人数SREチーム"
+
+context:
+  background: "障害検知の遅れが課題"
+  current_state: "CloudWatch のみ、可視化不足"
+  target_state: "リアルタイム監視とアラート体制"
+  
+priorities:
+  - 障害検知速度
+  - 運用負荷の低さ
+  - コスト効率
+
+risks:
+  - risk: "ツール習熟の時間不足"
+    impact: "medium"

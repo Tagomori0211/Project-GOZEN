@@ -1,0 +1,37 @@
+# tasks/TECH-001_database_selection.yaml
+# サンプルタスク: データベース選定
+
+task_id: "TECH-001"
+title: "新規プロジェクトのデータベース選定"
+created_at: "2026-02-01"
+status: "pending"
+
+mission: |
+  新規Webアプリケーションプロジェクトにおいて
+  最適なデータベース技術を選定せよ
+
+requirements:
+  - 同時接続数1000以上に対応
+  - トランザクション整合性が必要
+  - 将来的な水平スケーリング対応
+  - 開発チームの学習コスト考慮
+
+constraints:
+  budget: "月額 $500 以内"
+  timeline: "2週間以内に決定"
+  resources: "開発者3名(DB経験は初級)"
+  operator: "小規模チーム"
+
+context:
+  background: "スタートアップの新規サービス立ち上げ"
+  current_state: "技術選定フェーズ"
+  target_state: "本番運用可能なDB基盤"
+
+priorities:
+  - 開発速度
+  - 運用の安定性
+  - コスト効率
+
+risks:
+  - risk: "選定ミスによる後からの移行コスト"
+    impact: "high"

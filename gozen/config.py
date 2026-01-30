@@ -4,36 +4,43 @@ Project GOZEN - 設定モジュール
 階級体系、モデル設定、課金方式を一元管理する。
 """
 
-from dataclasses import dataclass, field
-from typing import Literal, Optional
+from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
 
 class Branch(Enum):
     """軍種"""
-    KAIGUN = "kaigun"  # 海軍（Claude系）
+    KAIGUN = "kaigun"   # 海軍（Claude系）
     RIKUGUN = "rikugun"  # 陸軍（Gemini系）
 
 
 class BillingType(Enum):
     """課金方式"""
     SUBSCRIPTION = "subscription"  # サブスク（Pro/Max）
-    API = "api"  # API従量課金
-    GCP_FREE = "gcp_free"  # GCP無料枠
+    API = "api"                    # API従量課金
+    GCP_FREE = "gcp_free"          # GCP無料枠
 
 
-@dataclass
+class InvocationMethod(Enum):
+    """呼び出し方法"""
+    CLAUDE_CODE_CLI = "claude_code_cli"
+    ANTHROPIC_API = "anthropic_api"
+    GEMINI_API = "gemini_api"
+
+
+@dataclass(frozen=True)
 class RankConfig:
-    """階級ごとの設定"""
-    name_ja: str  # 日本語名
-    name_en: str  # 英語名
-    branch: Branch  # 所属軍種
-    model: str  # 使用モデル
-    billing: BillingType  # 課金方式
-    method: str  # 呼び出し方法
-    parallel: int = 1  # 並列数
-    cost_per_mtok_input: float = 0.0  # 入力コスト（$/MTok）
-    cost_per_mtok_output: float = 0.0  # 出力コスト（$/MTok）
+    """階級ごとの設定（イミュータブル）"""
+    name_ja: str
+    name_en: str
+    branch: Branch
+    model: str
+    billing: BillingType
+    method: InvocationMethod
+    parallel: int = 1
+    cost_per_mtok_input: float = 0.0
+    cost_per_mtok_output: float = 0.0
 
 
 # ============================================================
@@ -48,9 +55,9 @@ RANK_CONFIG: dict[str, RankConfig] = {
         branch=Branch.KAIGUN,
         model="claude-opus-4-5-20250514",
         billing=BillingType.SUBSCRIPTION,
-        method="claude_code_cli",
+        method=InvocationMethod.CLAUDE_CODE_CLI,
         parallel=1,
-        cost_per_mtok_input=0.0,  # サブスク込み
+        cost_per_mtok_input=0.0,
         cost_per_mtok_output=0.0,
     ),
     "teitoku": RankConfig(
@@ -59,7 +66,7 @@ RANK_CONFIG: dict[str, RankConfig] = {
         branch=Branch.KAIGUN,
         model="claude-sonnet-4-5-20250514",
         billing=BillingType.API,
-        method="anthropic_api",
+        method=InvocationMethod.ANTHROPIC_API,
         parallel=1,
         cost_per_mtok_input=3.0,
         cost_per_mtok_output=15.0,
@@ -70,23 +77,23 @@ RANK_CONFIG: dict[str, RankConfig] = {
         branch=Branch.KAIGUN,
         model="claude-sonnet-4-5-20250514",
         billing=BillingType.API,
-        method="anthropic_api",
+        method=InvocationMethod.ANTHROPIC_API,
         parallel=1,
         cost_per_mtok_input=3.0,
         cost_per_mtok_output=15.0,
     ),
-    "suihei": RankConfig(
-        name_ja="水兵",
-        name_en="Sailor",
+    "kaihei": RankConfig(
+        name_ja="海兵",
+        name_en="Marine",
         branch=Branch.KAIGUN,
         model="claude-haiku-4-5-20251001",
         billing=BillingType.API,
-        method="anthropic_api",
+        method=InvocationMethod.ANTHROPIC_API,
         parallel=8,
         cost_per_mtok_input=1.0,
         cost_per_mtok_output=5.0,
     ),
-    
+
     # === 陸軍系統（Gemini） ===
     "rikugun_sanbou": RankConfig(
         name_ja="陸軍参謀",
@@ -94,9 +101,9 @@ RANK_CONFIG: dict[str, RankConfig] = {
         branch=Branch.RIKUGUN,
         model="gemini-2.0-pro-exp-02-05",
         billing=BillingType.GCP_FREE,
-        method="gemini_api",
+        method=InvocationMethod.GEMINI_API,
         parallel=1,
-        cost_per_mtok_input=0.0,  # GCP無料枠
+        cost_per_mtok_input=0.0,
         cost_per_mtok_output=0.0,
     ),
     "shikan": RankConfig(
@@ -105,7 +112,7 @@ RANK_CONFIG: dict[str, RankConfig] = {
         branch=Branch.RIKUGUN,
         model="gemini-2.5-flash-preview-04-17",
         billing=BillingType.API,
-        method="gemini_api",
+        method=InvocationMethod.GEMINI_API,
         parallel=1,
         cost_per_mtok_input=0.15,
         cost_per_mtok_output=0.60,
@@ -116,7 +123,7 @@ RANK_CONFIG: dict[str, RankConfig] = {
         branch=Branch.RIKUGUN,
         model="gemini-2.5-flash-preview-04-17",
         billing=BillingType.API,
-        method="gemini_api",
+        method=InvocationMethod.GEMINI_API,
         parallel=4,
         cost_per_mtok_input=0.15,
         cost_per_mtok_output=0.60,
@@ -128,13 +135,13 @@ RANK_CONFIG: dict[str, RankConfig] = {
 # API Tier設定（Anthropic）
 # ============================================================
 
-@dataclass
+@dataclass(frozen=True)
 class TierConfig:
     """APIティア設定"""
     name: str
-    deposit_usd: float  # 入金額
-    rpm: int  # Requests Per Minute
-    tpm: int  # Tokens Per Minute
+    deposit_usd: float
+    rpm: int
+    tpm: int
 
 
 API_TIERS: dict[int, TierConfig] = {
@@ -152,19 +159,19 @@ API_TIERS: dict[int, TierConfig] = {
 @dataclass
 class CostEstimate:
     """月額コスト見積もり"""
-    subscription: float = 20.0  # Pro $20
-    teitoku_kancho: float = 7.5  # Sonnet $5〜10
-    suihei: float = 15.0  # Haiku ×8 $10〜20
-    hohei: float = 7.5  # Gemini Flash ×4 $5〜10
-    
+    subscription: float = 20.0
+    teitoku_kancho: float = 7.5
+    kaihei: float = 15.0
+    hohei: float = 7.5
+    exchange_rate: float = 150.0
+
     @property
     def total(self) -> float:
-        return self.subscription + self.teitoku_kancho + self.suihei + self.hohei
-    
+        return self.subscription + self.teitoku_kancho + self.kaihei + self.hohei
+
     @property
     def total_jpy(self) -> float:
-        """円換算（1$ = 150円想定）"""
-        return self.total * 150
+        return self.total * self.exchange_rate
 
 
 DEFAULT_COST_ESTIMATE = CostEstimate()
@@ -177,7 +184,7 @@ DEFAULT_COST_ESTIMATE = CostEstimate()
 def get_rank_config(rank: str) -> RankConfig:
     """階級設定を取得"""
     if rank not in RANK_CONFIG:
-        raise ValueError(f"Unknown rank: {rank}")
+        raise ValueError(f"Unknown rank: {rank}. Valid ranks: {list(RANK_CONFIG.keys())}")
     return RANK_CONFIG[rank]
 
 
@@ -191,44 +198,36 @@ def get_parallel_count(rank: str) -> int:
     return get_rank_config(rank).parallel
 
 
-def estimate_cost(
-    input_tokens: int,
-    output_tokens: int,
-    rank: str
-) -> float:
-    """
-    API呼び出しのコスト見積もり
-    
-    Args:
-        input_tokens: 入力トークン数
-        output_tokens: 出力トークン数
-        rank: 階級名
-        
-    Returns:
-        コスト（USD）
-    """
+def estimate_cost(input_tokens: int, output_tokens: int, rank: str) -> float:
+    """API呼び出しのコスト見積もり（USD）"""
     config = get_rank_config(rank)
-    
+
     if config.billing == BillingType.SUBSCRIPTION:
         return 0.0
-    
+    if config.billing == BillingType.GCP_FREE:
+        return 0.0
+
     input_cost = (input_tokens / 1_000_000) * config.cost_per_mtok_input
     output_cost = (output_tokens / 1_000_000) * config.cost_per_mtok_output
-    
     return input_cost + output_cost
 
 
-def print_rank_table():
+def get_ranks_by_branch(branch: Branch) -> list[str]:
+    """軍種別の階級一覧を取得"""
+    return [rank for rank, cfg in RANK_CONFIG.items() if cfg.branch == branch]
+
+
+def print_rank_table() -> None:
     """階級表を表示（デバッグ用）"""
     print("\n" + "=" * 80)
     print("階級体系 × モデル × 課金方式")
     print("=" * 80)
     print(f"{'階級':<12} {'モデル':<35} {'課金':<12} {'並列':<6}")
     print("-" * 80)
-    
+
     for rank, config in RANK_CONFIG.items():
         print(f"{config.name_ja:<10} {config.model:<35} {config.billing.value:<12} ×{config.parallel}")
-    
+
     print("-" * 80)
     print(f"月額見込み: ${DEFAULT_COST_ESTIMATE.total:.0f} (¥{DEFAULT_COST_ESTIMATE.total_jpy:,.0f})")
     print("=" * 80)

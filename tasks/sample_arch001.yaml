@@ -1,0 +1,38 @@
+# tasks/ARCH-001_microservices_vs_monolith.yaml
+# サンプルタスク: アーキテクチャパターンの選定
+
+task_id: "ARCH-001"
+title: "アーキテクチャパターンの選定"
+created_at: "2026-02-01"
+status: "pending"
+
+mission: |
+  既存のモノリシックアプリケーションを
+  マイクロサービス化するか判断せよ
+
+requirements:
+  - 現在の開発速度を維持
+  - デプロイ頻度を週1から日次に向上
+  - 新機能追加の柔軟性確保
+
+constraints:
+  budget: "追加予算なし(既存リソース内)"
+  timeline: "3ヶ月で移行完了"
+  resources: "開発チーム5名"
+  operator: "社内チーム(外部委託不可)"
+
+context:
+  background: "サービス拡大に伴う開発効率の低下"
+  current_state: "Rails monolith, 50万行, デプロイ30分"
+  target_state: "継続的デリバリー可能な基盤"
+
+priorities:
+  - チーム生産性
+  - デプロイ速度
+  - 既存機能の安定性
+
+risks:
+  - risk: "移行中のサービス停止"
+    impact: "high"
+  - risk: "チームの学習コスト"
+    impact: "medium"

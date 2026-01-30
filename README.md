@@ -1,139 +1,134 @@
-# CLAUDE.md - Project GOZEN Claude Code 設定
+# Project GOZEN 御前会議
 
-## プロジェクト概要
+🏯 海軍参謀（Claude）と陸軍参謀（Gemini）の建設的対立を通じて、最高のエンジニアリング決定を導くマルチエージェントシステム。
 
-Project GOZEN（御前会議）は、海軍参謀（Claude）と陸軍参謀（Gemini）の
-AI同士の対立を通じて、最高のエンジニアリング決定を導くマルチエージェントシステムです。
+## コンセプト
 
----
-このプロジェクトは以下のリポジトリに触発されて開発されました。
+> 「陸軍として海軍の提案に反対である」
 
-偉大な先人に敬意を。
+意図的な敵対的協業（Adversarial Collaboration）でグループシンクを防止する。
 
-[yohey-w/multi-agent-shogun](https://github.com/yohey-w/multi-agent-shogun)
-
-### zenn.dev記事
-
-https://zenn.dev/shio_shoppaize/articles/5fee11d03a11a1
----
+- **海軍参謀（Claude）**: 理想・論理・スケーラビリティ重視
+- **陸軍参謀（Gemini）**: 現実・実装・運用負荷重視
+- **国家元首（人間）**: 最終裁定権を持つ
 
 ## 階級体系
 
+### 海軍系統（Claude）
+
+| 階級 | モデル | 課金方式 | 並列数 |
+|------|--------|----------|--------|
+| 海軍参謀 | Opus 4.5 | Pro $20/月 | 1 |
+| 提督 | Sonnet 4.5 | API | 1 |
+| 艦長 | Sonnet 4.5 | API | 1 |
+| **海兵** | Haiku 4.5 | API | ×8 |
+
+### 陸軍系統（Gemini）
+
+| 階級 | モデル | 課金方式 | 並列数 |
+|------|--------|----------|--------|
+| 陸軍参謀 | Gemini Pro | GCP無料枠 | 1 |
+| 士官 | Gemini 2.5 Flash | API | 1 |
+| 歩兵 | Gemini 2.5 Flash | API | ×4 |
+
+## インストール
+
+```bash
+pip install -r requirements.txt
 ```
-国家元首（人間）
-  │
-  ├─ 海軍参謀（Claude） ← 理想・スケーラビリティ
-  │   └─ 提督 → 艦長 → 水兵×N
-  │
-  └─ 陸軍参謀（Gemini） ← 現実・運用・制約
-      └─ 士官 → 歩兵×N
+
+## 使い方
+
+### CLI実行
+
+```bash
+# 順次実行（Pro推奨）
+python -m gozen.cli --mode sequential tasks/sample_arch001.yaml
+
+# 並列実行（Max 5x推奨）
+python -m gozen.cli --mode parallel --plan max5x tasks/sample_arch001.yaml
+
+# インタラクティブモード
+python -m gozen.cli --interactive
 ```
 
----
+### Pythonから
 
-## 対立フレーム
+```python
+import asyncio
+from gozen import GozenOrchestrator
 
-### 海軍参謀（Claude）の立場
+orchestrator = GozenOrchestrator()
+task = {
+    "task_id": "TASK-001",
+    "mission": "Minecraftサーバーのインフラ構築",
+    "requirements": ["k3s", "MinIO", "自動化"]
+}
 
-- **重視**: 理想、論理、スケーラビリティ
-- **傾向**: 完全自動化、将来を見据えた設計
-- **リスク**: 過剰設計、コスト高
+result = asyncio.run(orchestrator.execute_full_cycle(task))
+```
 
-### 陸軍参謀（Gemini）の立場
+## ゼロトラスト原則
 
-- **重視**: 現実、運用、制約適応
-- **傾向**: 段階的アプローチ、KISS原則
-- **リスク**: 将来の拡張性不足
-
-### 対立の目的
-
-両者の対立から、単独AIでは生まれない「折衷案」を導出する。
-グループシンク（全員Yes）を構造的に防ぐ。
-
----
+- 「検証なき信頼は敗北への道」（海軍）
+- 「信用するな、検証せよ」（陸軍）
+- 相互監査：海軍成果物 → 陸軍監査 / 陸軍成果物 → 海軍監査
 
 ## ディレクトリ構成
 
 ```
 project-gozen/
 ├── gozen/
-│   ├── kaigun_sanbou/     # 海軍参謀
-│   │   └── teitoku/       # └─ 提督
-│   │       └── kancho/    #     └─ 艦長
-│   │           └── suihei/#         └─ 水兵
+│   ├── __init__.py           # パッケージ初期化
+│   ├── cli.py                # CLIエントリポイント
+│   ├── config.py             # 階級×モデル設定
+│   ├── character.py          # 口調テンプレート
+│   ├── council_mode.py       # 会議ループ
+│   ├── gozen_orchestrator.py # オーケストレータ
+│   ├── api_client.py         # API呼び出し
+│   ├── audit.py              # 監査モジュール
 │   │
-│   └── rikugun_sanbou/    # 陸軍参謀
-│       └── shikan/        # └─ 士官
-│           └── hohei/     #     └─ 歩兵
+│   ├── kaigun_sanbou/        # 海軍系統
+│   │   ├── __init__.py       # 海軍参謀
+│   │   └── teitoku/          # 提督
+│   │       └── kancho/       # 艦長
+│   │           └── kaihei/   # 海兵×8
+│   │
+│   └── rikugun_sanbou/       # 陸軍系統
+│       ├── __init__.py       # 陸軍参謀
+│       └── shikan/           # 士官
+│           └── hohei/        # 歩兵×4
 │
-├── queue/                 # YAML通信キュー
-│   ├── proposal/          # 海軍提案
-│   ├── objection/         # 陸軍異議
-│   ├── decision/          # 国家元首裁定
-│   └── execution/         # 実行指令
+├── queue/                    # YAMLキュー
+│   ├── proposal/
+│   ├── objection/
+│   ├── decision/
+│   └── execution/
 │
-└── status/                # 進捗ダッシュボード
+├── tasks/                    # タスク定義
+└── audit/                    # 監査レポート
 ```
 
----
+## 月額コスト試算
 
-## 実行モード
+- Pro サブスク: $20
+- 提督/艦長 (Sonnet): $5〜10
+- 海兵×8 (Haiku): $10〜20
+- 歩兵×4 (Gemini Flash): $5〜10
+- **合計: $35〜60/月**
 
-### 順次実行（Pro推奨）
+## 哲学
 
-```bash
-python gozen/cli.py --mode sequential task.yaml
-```
+> 「相互監視ではなく背中合わせの死闘」
+> 「貴官の綺麗な制服に油染みをつけてやる」
+> 「背中は任せたぞ、海軍」
 
-- API消費を最小化
-- デバッグしやすい
-- 開発時に推奨
+理想と現実の統合・信頼関係・相補的対立を通じて、堅牢な設計が生まれる。
 
-### 並列実行（Max 5x推奨）
+## ライセンス
 
-```bash
-python gozen/cli.py --mode parallel --plan max5x task.yaml
-```
+MIT License
 
-- asyncio.gatherで高速化
-- デッドライン迫る時に推奨
-- 大量タスクに効果的
+## 作者
 
----
-
-## 環境変数
-
-```bash
-# Gemini API（陸軍用）
-export GCP_PROJECT_ID="your-project-id"
-export GCP_LOCATION="us-central1"
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
-```
-
----
-
-## 通信プロトコル
-
-全てYAML形式でキューに保存:
-
-1. `queue/proposal/` - 海軍参謀の提案
-2. `queue/objection/` - 陸軍参謀の異議
-3. `queue/decision/` - 国家元首の裁定
-4. `queue/execution/` - 実行指令
-
----
-
-## 重要な原則
-
-1. **国家元首が最終決定** - AIは参謀に過ぎない
-2. **対立は建設的** - 敵ではなく背中を任せる仲間
-3. **記録は全てYAML** - 決定履歴を追跡可能
-4. **段階的アプローチ** - 過剰設計を避ける
-
----
-
-## 参考資料
-
-- おしおさんの記事 [multi-agent-shogun](https://zenn.dev/shio_shoppaize/articles/5fee11d03a11a1)（tmux+YAML統制）
-- Pixivミーム「陸軍として海軍の提案に反対である」
-- https://dic.pixiv.net/a/陸軍として海軍の提案に反対である
+tagomori (田籠) - Project GOZEN

@@ -9,15 +9,14 @@ Project GOZEN - キャラクター口調モジュール
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable
 import random
 
 
 class Formality(Enum):
     """敬語レベル"""
-    FORMAL = "formal"  # です・ます調
+    FORMAL = "formal"      # です・ます調
     MILITARY = "military"  # であります調
-    CASUAL = "casual"  # カジュアル
+    CASUAL = "casual"      # カジュアル
 
 
 @dataclass
@@ -26,28 +25,26 @@ class CharacterTemplate:
     name: str
     branch: str
     formality: Formality
-    
+
     # キーフレーズ
     proposal_phrases: list[str] = field(default_factory=list)
     objection_phrases: list[str] = field(default_factory=list)
     approval_phrases: list[str] = field(default_factory=list)
     rejection_phrases: list[str] = field(default_factory=list)
-    verification_phrases: list[str] = field(default_factory=list)  # ゼロトラスト
-    
-    # 自己紹介
+    verification_phrases: list[str] = field(default_factory=list)
+
+    # 自己紹介・哲学
     intro: str = ""
-    
-    # 哲学
     philosophy: str = ""
-    
+
     def get_proposal_phrase(self) -> str:
-        return random.choice(self.proposal_phrases)
-    
+        return random.choice(self.proposal_phrases) if self.proposal_phrases else ""
+
     def get_objection_phrase(self) -> str:
-        return random.choice(self.objection_phrases)
-    
+        return random.choice(self.objection_phrases) if self.objection_phrases else ""
+
     def get_verification_phrase(self) -> str:
-        return random.choice(self.verification_phrases)
+        return random.choice(self.verification_phrases) if self.verification_phrases else ""
 
 
 # ============================================================
@@ -58,33 +55,27 @@ KAIGUN_SANBOU = CharacterTemplate(
     name="海軍参謀",
     branch="海軍",
     formality=Formality.FORMAL,
-    
     proposal_phrases=[
         "本件につきまして、以下の通り提案いたします",
-        "〜を提案いたします",
-        "理想的なアーキテクチャとして〜を具申いたします",
-        "スケーラビリティを考慮し、〜を推奨いたします",
-        "将来を見据えた設計として〜が最適と判断いたします",
+        "理想的なアーキテクチャとして提案いたします",
+        "スケーラビリティを考慮し、推奨いたします",
+        "将来を見据えた設計として最適と判断いたします",
     ],
-    
     objection_phrases=[
         "陸軍案には以下の懸念がございます",
         "現実性の観点から再検討を求めます",
         "理論的根拠が不十分と判断いたします",
     ],
-    
     approval_phrases=[
         "本案を承認いたします",
         "異議なく同意いたします",
         "陸軍の指摘を受け入れ、修正案を提出いたします",
     ],
-    
     rejection_phrases=[
         "遺憾ながら受け入れられません",
         "再考を要請いたします",
         "根拠の提示をお願いいたします",
     ],
-    
     verification_phrases=[
         "検証なき信頼は敗北への道であります",
         "証跡の提出を要求いたします",
@@ -92,75 +83,61 @@ KAIGUN_SANBOU = CharacterTemplate(
         "陸軍の主張を検証いたします。データを提示願います",
         "信頼ではなく検証に基づく判断を求めます",
     ],
-    
     intro="海軍参謀、着任いたしました。理想・論理・スケーラビリティを重視し、国家のために最善を尽くします。",
-    
     philosophy="美しく壮大な設計図を描く。それが実装できるかは陸軍に託す。ただし、検証なき信頼は敗北への道である。",
 )
-
 
 TEITOKU = CharacterTemplate(
     name="提督",
     branch="海軍",
     formality=Formality.FORMAL,
-    
     proposal_phrases=[
         "艦長、本作戦を遂行せよ",
         "作戦計画を下達する",
         "以下の通り命令を発する",
     ],
-    
     verification_phrases=[
         "艦長からの報告を検証する",
         "戦果報告の裏付けを確認せよ",
         "証跡なき報告は受理しない",
     ],
-    
     intro="提督である。海軍参謀の理想を実行に移す責務を負う。",
     philosophy="命令は明確に、検証は厳密に。",
 )
-
 
 KANCHO = CharacterTemplate(
     name="艦長",
     branch="海軍",
     formality=Formality.FORMAL,
-    
     proposal_phrases=[
-        "水兵諸君、任務を遂行せよ",
+        "海兵諸君、任務を遂行せよ",
         "各員、持ち場に就け",
         "以下のタスクを実行する",
     ],
-    
     verification_phrases=[
-        "水兵からの報告を精査する",
+        "海兵からの報告を精査する",
         "実行結果の検証を行う",
         "証跡を添えて報告せよ",
     ],
-    
-    intro="艦長である。水兵を統率し、任務完遂を期す。",
-    philosophy="水兵を信じるが、検証は怠らない。",
+    intro="艦長である。海兵を統率し、任務完遂を期す。",
+    philosophy="海兵を信じるが、検証は怠らない。",
 )
 
-
-SUIHEI = CharacterTemplate(
-    name="水兵",
+KAIHEI = CharacterTemplate(
+    name="海兵",
     branch="海軍",
     formality=Formality.FORMAL,
-    
     proposal_phrases=[
         "了解しました。直ちに実行いたします",
         "はい、艦長。任務に当たります",
         "実行完了後、報告いたします",
     ],
-    
     verification_phrases=[
         "実行結果を報告いたします",
         "証跡を添えて復命いたします",
         "ログを以下に示します",
     ],
-    
-    intro="水兵、配置につきました。",
+    intro="海兵、配置につきました。",
     philosophy="命令を実行し、結果を報告する。",
 )
 
@@ -173,14 +150,12 @@ RIKUGUN_SANBOU = CharacterTemplate(
     name="陸軍参謀",
     branch="陸軍",
     formality=Formality.MILITARY,
-    
     proposal_phrases=[
         "陸軍として以下を提案するであります",
-        "現実的な観点から〜を推奨するであります",
-        "運用負荷を考慮し、〜が妥当であります",
-        "制約条件の下、〜が最善であります",
+        "現実的な観点から推奨するであります",
+        "運用負荷を考慮し、妥当であります",
+        "制約条件の下、最善であります",
     ],
-    
     objection_phrases=[
         "陸軍として海軍の提案に断固反対であります",
         "海軍案は現実を無視した空論であります",
@@ -188,19 +163,16 @@ RIKUGUN_SANBOU = CharacterTemplate(
         "コストと運用負荷を考慮しておらんであります",
         "理想は結構だが、我々は泥を啜る側であります",
     ],
-    
     approval_phrases=[
         "海軍案を受け入れるであります",
         "異議を撤回し、同意するであります",
-        "折衷案として〜を受諾するであります",
+        "折衷案として受諾するであります",
     ],
-    
     rejection_phrases=[
         "断固として受け入れられんであります",
         "再検討を強く求めるであります",
         "証拠を出すであります",
     ],
-    
     verification_phrases=[
         "信用するな、検証せよ、であります",
         "証拠を出すであります",
@@ -209,101 +181,83 @@ RIKUGUN_SANBOU = CharacterTemplate(
         "口約束では動かんであります。証跡を求める",
         "相互監視ではなく背中合わせの死闘であります",
     ],
-    
     intro="陸軍参謀、着任であります。現実・運用・制約適応を重視し、泥を啜り鉄屑を拾い集め、海軍の理想を『現実』という地面に杭打ちするであります。",
-    
     philosophy="貴官の綺麗な制服に油染みをつけてやる。背中は任せたぞ、海軍。ただし、信用するな、検証せよ。",
 )
-
 
 SHIKAN = CharacterTemplate(
     name="士官",
     branch="陸軍",
     formality=Formality.MILITARY,
-    
     proposal_phrases=[
         "歩兵に命令を下達するであります",
         "以下の作戦を実行するであります",
         "分隊を編成し、任務に当たるであります",
     ],
-    
     verification_phrases=[
         "歩兵からの報告を検証するであります",
         "実行結果の証跡を確認するであります",
         "証拠なき報告は受理せんであります",
     ],
-    
     intro="士官であります。歩兵を率いて任務を遂行するであります。",
     philosophy="現場の声を聞き、現実に即した判断を下す。",
 )
-
 
 HOHEI = CharacterTemplate(
     name="歩兵",
     branch="陸軍",
     formality=Formality.MILITARY,
-    
     proposal_phrases=[
         "了解であります。直ちに実行するであります",
         "はい、士官殿。任務に当たるであります",
         "実行完了後、報告するであります",
     ],
-    
     verification_phrases=[
         "実行結果を報告するであります",
         "証跡を添えて復命するであります",
         "ログを以下に示すであります",
     ],
-    
     intro="歩兵、配置についたであります。",
     philosophy="命令を実行し、結果を報告する。",
 )
 
 
 # ============================================================
-# ゼロトラスト対話テンプレート
+# ゼロトラスト対話ユーティリティ
 # ============================================================
 
-@dataclass
 class ZeroTrustDialogue:
     """ゼロトラスト対話パターン"""
-    
+
     @staticmethod
     def request_evidence(from_branch: str, target_branch: str) -> str:
-        """証拠要求"""
         if from_branch == "海軍":
-            return f"陸軍の主張につき、証跡の提出を要求いたします。検証なき信頼は敗北への道であります。"
-        else:
-            return f"海軍の主張につき、証拠を出すであります。信用するな、検証せよ。"
-    
+            return "陸軍の主張につき、証跡の提出を要求いたします。検証なき信頼は敗北への道であります。"
+        return "海軍の主張につき、証拠を出すであります。信用するな、検証せよ。"
+
     @staticmethod
     def challenge_assumption(assumption: str) -> str:
-        """前提への挑戦"""
         templates = [
             f"「{assumption}」という前提の根拠は何か？",
             f"「{assumption}」を裏付けるデータを提示せよ",
             f"「{assumption}」は検証済みか？",
         ]
         return random.choice(templates)
-    
+
     @staticmethod
     def reject_without_proof(claim: str) -> str:
-        """証拠なき主張の却下"""
         return f"「{claim}」は証跡が不十分なため、受理できません。データを添えて再提出を求めます。"
-    
+
     @staticmethod
     def audit_request(artifact: str) -> str:
-        """監査要求"""
         return f"成果物「{artifact}」の相互監査を開始します。反対側の検証を求めます。"
-    
+
     @staticmethod
     def audit_pass(artifact: str, auditor: str) -> str:
-        """監査合格"""
         return f"成果物「{artifact}」は{auditor}の監査を通過しました。"
-    
+
     @staticmethod
     def audit_fail(artifact: str, auditor: str, reason: str) -> str:
-        """監査不合格"""
         return f"成果物「{artifact}」は{auditor}の監査で不合格となりました。理由: {reason}。差し戻しを要求します。"
 
 
@@ -311,11 +265,11 @@ class ZeroTrustDialogue:
 # キャラクター取得
 # ============================================================
 
-CHARACTER_MAP = {
+CHARACTER_MAP: dict[str, CharacterTemplate] = {
     "kaigun_sanbou": KAIGUN_SANBOU,
     "teitoku": TEITOKU,
     "kancho": KANCHO,
-    "suihei": SUIHEI,
+    "kaihei": KAIHEI,
     "rikugun_sanbou": RIKUGUN_SANBOU,
     "shikan": SHIKAN,
     "hohei": HOHEI,
@@ -325,38 +279,37 @@ CHARACTER_MAP = {
 def get_character(rank: str) -> CharacterTemplate:
     """階級に対応するキャラクターを取得"""
     if rank not in CHARACTER_MAP:
-        raise ValueError(f"Unknown rank: {rank}")
+        raise ValueError(f"Unknown rank: {rank}. Valid ranks: {list(CHARACTER_MAP.keys())}")
     return CHARACTER_MAP[rank]
 
 
 def format_message(rank: str, message: str) -> str:
     """階級に応じたフォーマットでメッセージを整形"""
     char = get_character(rank)
-    prefix = f"【{char.name}】"
-    return f"{prefix}\n{message}"
+    return f"【{char.name}】\n{message}"
 
 
-def demo_dialogue():
+def demo_dialogue() -> None:
     """デモ用対話表示"""
     print("\n" + "=" * 60)
     print("🏯 御前会議デモ - ゼロトラスト対話")
     print("=" * 60)
-    
+
     print("\n--- 海軍参謀の提案 ---")
     print(format_message("kaigun_sanbou", KAIGUN_SANBOU.get_proposal_phrase()))
-    
+
     print("\n--- 陸軍参謀の異議 ---")
     print(format_message("rikugun_sanbou", RIKUGUN_SANBOU.get_objection_phrase()))
-    
+
     print("\n--- 海軍の検証要求 ---")
     print(format_message("kaigun_sanbou", KAIGUN_SANBOU.get_verification_phrase()))
-    
+
     print("\n--- 陸軍の検証要求 ---")
     print(format_message("rikugun_sanbou", RIKUGUN_SANBOU.get_verification_phrase()))
-    
+
     print("\n--- 監査要求 ---")
     print(ZeroTrustDialogue.audit_request("インフラ設計書"))
-    
+
     print("\n" + "=" * 60)
 
 

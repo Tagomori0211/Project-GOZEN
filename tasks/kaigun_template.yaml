@@ -1,0 +1,73 @@
+# templates/kaigun_template.yaml
+# 海軍参謀提案テンプレート
+
+proposal_id: ""
+task_id: ""
+created_at: ""
+author: "海軍参謀"
+
+philosophy: |
+  美しく壮大な設計図を描く。
+  それが実装できるかは陸軍に託す。
+
+stance:
+  - 理想を追求する
+  - スケーラビリティ重視
+  - 将来の拡張を見据える
+  - 学習コストは許容する
+
+proposal:
+  title: ""
+
+  summary: |
+    [提案の概要を3-5行で]
+
+  approach:
+    philosophy: ""
+    key_principles:
+      - ""
+
+  architecture:
+    components:
+      - name: ""
+        purpose: ""
+        technology: ""
+        rationale: ""
+        scalability: ""
+
+    integration:
+      - ""
+
+  implementation:
+    phases:
+      - phase: ""
+        objectives: []
+        deliverables: []
+        duration: ""
+        dependencies: []
+
+  benefits:
+    immediate:
+      - ""
+    long_term:
+      - ""
+
+  tradeoffs:
+    accepts:
+      - what: ""
+        why: ""
+
+  risks:
+    - risk: ""
+      probability: "high/medium/low"
+      impact: "high/medium/low"
+      mitigation: ""
+
+anticipated_objections:
+  - objection: ""
+    counter_argument: ""
+    
+evidence:
+  - type: "benchmark/case_study/analysis"
+    source: ""
+    summary: ""

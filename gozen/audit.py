@@ -10,33 +10,34 @@ Project GOZEN - 監査モジュール
 「信用するな、検証せよ」
 """
 
-import asyncio
-import yaml
-import hashlib
-from datetime import datetime
-from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Optional, Literal
-from enum import Enum
+from __future__ import annotations
 
-from gozen.config import get_rank_config, Branch
+import asyncio
+import hashlib
+import yaml
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Optional
+
 from gozen.character import ZeroTrustDialogue, get_character
 
 
 class AuditResult(Enum):
     """監査結果"""
-    PASS = "pass"  # 合格
-    FAIL = "fail"  # 不合格
-    CONDITIONAL = "conditional"  # 条件付き合格
-    PENDING = "pending"  # 保留
+    PASS = "pass"
+    FAIL = "fail"
+    CONDITIONAL = "conditional"
+    PENDING = "pending"
 
 
 class AuditSeverity(Enum):
     """指摘の重大度"""
-    CRITICAL = "critical"  # 致命的（即時差し戻し）
-    MAJOR = "major"  # 重大（要修正）
-    MINOR = "minor"  # 軽微（推奨修正）
-    INFO = "info"  # 情報（参考）
+    CRITICAL = "critical"
+    MAJOR = "major"
+    MINOR = "minor"
+    INFO = "info"
 
 
 @dataclass
@@ -55,36 +56,34 @@ class AuditReport:
     artifact_id: str
     artifact_type: str
     artifact_hash: str
-    
-    auditor_branch: str  # 監査者の所属（kaigun/rikugun）
-    auditor_rank: str  # 監査者の階級
-    
+
+    auditor_branch: str
+    auditor_rank: str
+
     result: AuditResult
     findings: list[AuditFinding] = field(default_factory=list)
-    
+
     started_at: str = field(default_factory=lambda: datetime.now().isoformat())
     completed_at: Optional[str] = None
-    
+
     summary: str = ""
-    
-    def add_finding(self, finding: AuditFinding):
-        """指摘事項を追加"""
+
+    def add_finding(self, finding: AuditFinding) -> None:
         self.findings.append(finding)
-    
+
     @property
     def critical_count(self) -> int:
         return sum(1 for f in self.findings if f.severity == AuditSeverity.CRITICAL)
-    
+
     @property
     def major_count(self) -> int:
         return sum(1 for f in self.findings if f.severity == AuditSeverity.MAJOR)
-    
+
     @property
     def minor_count(self) -> int:
         return sum(1 for f in self.findings if f.severity == AuditSeverity.MINOR)
-    
-    def to_dict(self) -> dict:
-        """辞書に変換"""
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "artifact_id": self.artifact_id,
             "artifact_type": self.artifact_type,
@@ -119,10 +118,9 @@ class AuditReport:
 class AuditChecklist:
     """監査チェックリスト"""
     name: str
-    items: list[dict] = field(default_factory=list)
+    items: list[dict[str, str]] = field(default_factory=list)
 
 
-# 海軍が陸軍を監査する際のチェックリスト
 KAIGUN_AUDIT_CHECKLIST = AuditChecklist(
     name="海軍監査チェックリスト（陸軍成果物向け）",
     items=[
@@ -135,7 +133,6 @@ KAIGUN_AUDIT_CHECKLIST = AuditChecklist(
     ]
 )
 
-# 陸軍が海軍を監査する際のチェックリスト
 RIKUGUN_AUDIT_CHECKLIST = AuditChecklist(
     name="陸軍監査チェックリスト（海軍成果物向け）",
     items=[
@@ -154,35 +151,22 @@ RIKUGUN_AUDIT_CHECKLIST = AuditChecklist(
 # ============================================================
 
 class AuditManager:
-    """
-    監査マネージャー
-    
-    ゼロトラスト原則に基づき、相互監査を実行する。
-    """
-    
-    def __init__(self, audit_dir: Optional[Path] = None):
+    """監査マネージャー（ゼロトラスト原則に基づく相互監査）"""
+
+    def __init__(self, audit_dir: Optional[Path] = None) -> None:
         self.audit_dir = audit_dir or Path(__file__).parent.parent / "audit"
         self.audit_dir.mkdir(parents=True, exist_ok=True)
-    
+
     def determine_auditor(self, artifact_branch: str) -> tuple[str, str]:
-        """
-        成果物の作成元から監査者を決定
-        
-        海軍成果物 → 陸軍が監査
-        陸軍成果物 → 海軍が監査
-        
-        Returns:
-            (auditor_branch, auditor_rank)
-        """
+        """成果物の作成元から監査者を決定"""
         if artifact_branch == "kaigun":
             return ("rikugun", "rikugun_sanbou")
-        else:
-            return ("kaigun", "kaigun_sanbou")
-    
+        return ("kaigun", "kaigun_sanbou")
+
     def compute_hash(self, content: str) -> str:
         """成果物のハッシュを計算"""
         return hashlib.sha256(content.encode()).hexdigest()[:16]
-    
+
     async def audit(
         self,
         artifact_id: str,
@@ -190,29 +174,17 @@ class AuditManager:
         artifact_content: str,
         artifact_branch: str,
     ) -> AuditReport:
-        """
-        成果物を監査
-        
-        Args:
-            artifact_id: 成果物ID
-            artifact_type: 成果物タイプ（proposal/implementation/etc）
-            artifact_content: 成果物の内容
-            artifact_branch: 作成元の所属（kaigun/rikugun）
-            
-        Returns:
-            監査レポート
-        """
+        """成果物を監査"""
         auditor_branch, auditor_rank = self.determine_auditor(artifact_branch)
         artifact_hash = self.compute_hash(artifact_content)
-        
+
         print("\n" + "🔍" * 25)
         print(f"  相互監査開始")
         print(f"  成果物: {artifact_id} ({artifact_type})")
         print(f"  作成元: {artifact_branch}")
         print(f"  監査者: {auditor_branch}")
         print("🔍" * 25)
-        
-        # 監査レポート初期化
+
         report = AuditReport(
             artifact_id=artifact_id,
             artifact_type=artifact_type,
@@ -221,46 +193,36 @@ class AuditManager:
             auditor_rank=auditor_rank,
             result=AuditResult.PENDING,
         )
-        
-        # ゼロトラスト宣言
+
         char = get_character(auditor_rank)
         print(f"\n【{char.name}】{char.get_verification_phrase()}")
-        
-        # チェックリスト実行
+
         checklist = KAIGUN_AUDIT_CHECKLIST if auditor_branch == "kaigun" else RIKUGUN_AUDIT_CHECKLIST
         await self._execute_checklist(report, checklist, artifact_content)
-        
-        # 結果判定
+
         report.result = self._determine_result(report)
         report.completed_at = datetime.now().isoformat()
         report.summary = self._generate_summary(report)
-        
-        # レポート保存
+
         self._save_report(report)
-        
-        # 結果表示
         self._print_result(report)
-        
+
         return report
-    
+
     async def _execute_checklist(
         self,
         report: AuditReport,
         checklist: AuditChecklist,
         content: str,
-    ):
+    ) -> None:
         """チェックリストを実行"""
         print(f"\n📋 {checklist.name}")
         print("-" * 50)
-        
+
         for item in checklist.items:
             category = item["category"]
-            check = item["check"]
-            
-            # 実際の実装ではLLMで判定
-            # ここではデモ用にランダムまたは固定判定
-            finding = await self._evaluate_item(category, check, content, report.auditor_branch)
-            
+            finding = await self._evaluate_item(category, item["check"], content, report.auditor_branch)
+
             if finding:
                 report.add_finding(finding)
                 severity_icon = {
@@ -272,7 +234,7 @@ class AuditManager:
                 print(f"  {severity_icon[finding.severity]} [{category}] {finding.description}")
             else:
                 print(f"  ✅ [{category}] OK")
-    
+
     async def _evaluate_item(
         self,
         category: str,
@@ -280,16 +242,11 @@ class AuditManager:
         content: str,
         auditor_branch: str,
     ) -> Optional[AuditFinding]:
-        """
-        チェック項目を評価
-        
-        実際の実装ではLLMで判定する。
-        ここではデモ用のダミー実装。
-        """
-        # デモ: 特定のキーワードで指摘を生成
+        """チェック項目を評価（デモ用ダミー実装）"""
+        content_lower = content.lower()
+
         if auditor_branch == "rikugun":
-            # 陸軍が海軍を監査: 過剰設計チェック
-            if category == "現実性" and "k3s" in content.lower():
+            if category == "現実性" and "k3s" in content_lower:
                 return AuditFinding(
                     severity=AuditSeverity.MAJOR,
                     category=category,
@@ -297,7 +254,7 @@ class AuditManager:
                     evidence="要件: 50ユーザー、提案: k3sクラスタ",
                     recommendation="Docker Compose から段階的に導入すべきであります",
                 )
-            if category == "コスト" and "terraform" in content.lower():
+            if category == "コスト" and "terraform" in content_lower:
                 return AuditFinding(
                     severity=AuditSeverity.MINOR,
                     category=category,
@@ -306,8 +263,7 @@ class AuditManager:
                     recommendation="Ansible 単体での運用を推奨であります",
                 )
         else:
-            # 海軍が陸軍を監査: スケーラビリティチェック
-            if category == "スケーラビリティ" and "docker-compose" in content.lower():
+            if category == "スケーラビリティ" and "docker-compose" in content_lower:
                 return AuditFinding(
                     severity=AuditSeverity.MAJOR,
                     category=category,
@@ -315,7 +271,7 @@ class AuditManager:
                     evidence="将来要件: 200ユーザー対応",
                     recommendation="k3s 移行計画を策定いただきたい",
                 )
-            if category == "自動化" and "manual" in content.lower():
+            if category == "自動化" and "manual" in content_lower:
                 return AuditFinding(
                     severity=AuditSeverity.MINOR,
                     category=category,
@@ -323,46 +279,38 @@ class AuditManager:
                     evidence="マニュアル手順の存在",
                     recommendation="Ansible で自動化を推奨いたします",
                 )
-        
+
         return None
-    
+
     def _determine_result(self, report: AuditReport) -> AuditResult:
         """監査結果を判定"""
         if report.critical_count > 0:
             return AuditResult.FAIL
-        elif report.major_count >= 2:
+        if report.major_count >= 2:
             return AuditResult.FAIL
-        elif report.major_count == 1:
+        if report.major_count == 1:
             return AuditResult.CONDITIONAL
-        else:
-            return AuditResult.PASS
-    
+        return AuditResult.PASS
+
     def _generate_summary(self, report: AuditReport) -> str:
         """監査サマリーを生成"""
-        result_text = {
-            AuditResult.PASS: "合格",
-            AuditResult.FAIL: "不合格（差し戻し）",
-            AuditResult.CONDITIONAL: "条件付き合格",
-            AuditResult.PENDING: "保留",
-        }
-        
         char = get_character(report.auditor_rank)
-        
+
         if report.result == AuditResult.PASS:
             return ZeroTrustDialogue.audit_pass(report.artifact_id, char.name)
         elif report.result == AuditResult.FAIL:
-            reasons = [f.description for f in report.findings if f.severity in [AuditSeverity.CRITICAL, AuditSeverity.MAJOR]]
+            reasons = [f.description for f in report.findings
+                       if f.severity in [AuditSeverity.CRITICAL, AuditSeverity.MAJOR]]
             return ZeroTrustDialogue.audit_fail(report.artifact_id, char.name, "; ".join(reasons[:2]))
-        else:
-            return f"成果物「{report.artifact_id}」は条件付きで承認。指摘事項への対応を求めます。"
-    
-    def _save_report(self, report: AuditReport):
+        return f"成果物「{report.artifact_id}」は条件付きで承認。指摘事項への対応を求めます。"
+
+    def _save_report(self, report: AuditReport) -> None:
         """監査レポートを保存"""
         filepath = self.audit_dir / f"{report.artifact_id}_audit.yaml"
         with open(filepath, "w", encoding="utf-8") as f:
             yaml.dump(report.to_dict(), f, allow_unicode=True, default_flow_style=False)
-    
-    def _print_result(self, report: AuditReport):
+
+    def _print_result(self, report: AuditReport) -> None:
         """監査結果を表示"""
         result_icon = {
             AuditResult.PASS: "✅",
@@ -370,7 +318,7 @@ class AuditManager:
             AuditResult.CONDITIONAL: "⚠️",
             AuditResult.PENDING: "⏳",
         }
-        
+
         print("\n" + "=" * 50)
         print(f"監査結果: {result_icon[report.result]} {report.result.value.upper()}")
         print(f"指摘: 🔴{report.critical_count} 🟠{report.major_count} 🟡{report.minor_count}")
@@ -390,8 +338,8 @@ class RemandRequest:
     audit_report: AuditReport
     requested_changes: list[str] = field(default_factory=list)
     deadline: Optional[str] = None
-    
-    def to_dict(self) -> dict:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "artifact_id": self.artifact_id,
             "audit_result": self.audit_report.result.value,
@@ -402,25 +350,22 @@ class RemandRequest:
 
 
 async def process_remand(report: AuditReport) -> Optional[RemandRequest]:
-    """
-    差し戻し処理
-    
-    監査不合格の場合、差し戻し要求を生成
-    """
+    """差し戻し処理"""
     if report.result not in [AuditResult.FAIL, AuditResult.CONDITIONAL]:
         return None
-    
-    requested_changes = []
-    for finding in report.findings:
-        if finding.severity in [AuditSeverity.CRITICAL, AuditSeverity.MAJOR]:
-            requested_changes.append(f"[{finding.category}] {finding.recommendation}")
-    
+
+    requested_changes = [
+        f"[{f.category}] {f.recommendation}"
+        for f in report.findings
+        if f.severity in [AuditSeverity.CRITICAL, AuditSeverity.MAJOR]
+    ]
+
     remand = RemandRequest(
         artifact_id=report.artifact_id,
         audit_report=report,
         requested_changes=requested_changes,
     )
-    
+
     print("\n" + "🔄" * 25)
     print("  差し戻し要求")
     print("🔄" * 25)
@@ -428,43 +373,41 @@ async def process_remand(report: AuditReport) -> Optional[RemandRequest]:
     print("\n修正要求:")
     for i, change in enumerate(remand.requested_changes, 1):
         print(f"  {i}. {change}")
-    
+
     return remand
 
 
 # ============================================================
-# デモ・テスト
+# デモ
 # ============================================================
 
-async def demo():
+async def demo() -> None:
     """監査デモ"""
     print("\n" + "=" * 60)
     print("🔍 監査モジュール デモ")
     print("=" * 60)
-    
+
     manager = AuditManager()
-    
-    # 海軍成果物を陸軍が監査
+
     kaigun_artifact = """
     提案: k3s クラスタによるMinecraftサーバー基盤
-    
+
     コンポーネント:
     - k3s クラスタ（3ノード）
     - Terraform による IaC
     - Prometheus/Grafana 監視
     - GitHub Actions CI/CD
-    
+
     対象ユーザー: 50名（将来200名対応）
     """
-    
+
     report = await manager.audit(
         artifact_id="PROPOSAL-001",
         artifact_type="proposal",
         artifact_content=kaigun_artifact,
         artifact_branch="kaigun",
     )
-    
-    # 不合格の場合は差し戻し
+
     if report.result == AuditResult.FAIL:
         await process_remand(report)
 
