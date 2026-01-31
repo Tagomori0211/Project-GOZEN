@@ -30,7 +30,12 @@ class Hohei:
 
     async def execute(self, verification_task: dict[str, Any]) -> dict[str, Any]:
         """検証タスクを実行"""
-        print(f"[歩兵{self.worker_id}] 検証開始: {verification_task.get('name', 'N/A')}")
+        from gozen.dashboard import get_dashboard
+        dashboard = get_dashboard()
+        name = verification_task.get("name", "N/A")
+
+        print(f"[歩兵{self.worker_id}] 検証開始: {name}")
+        await dashboard.unit_update("rikugun", "hohei", str(self.worker_id), "in_progress", name)
 
         task_type = verification_task.get("type", "general")
 
@@ -53,6 +58,7 @@ class Hohei:
         }
 
         print(f"[歩兵{self.worker_id}] 検証完了")
+        await dashboard.unit_update("rikugun", "hohei", str(self.worker_id), "completed", name)
         return result
 
     async def _analyze_cost(self, task: dict[str, Any]) -> dict[str, Any]:

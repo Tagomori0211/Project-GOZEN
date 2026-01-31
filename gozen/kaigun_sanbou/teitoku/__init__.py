@@ -33,6 +33,10 @@ class Teitoku:
         mode: Literal["sequential", "parallel"] = "sequential",
     ) -> dict[str, Any]:
         """決定を実行に移す"""
+        from gozen.dashboard import get_dashboard
+        dashboard = get_dashboard()
+        await dashboard.unit_update("kaigun", "teitoku", "main", "in_progress")
+
         print(f"[提督] 指令受領。タスク分解開始...")
 
         subtasks = self._decompose_tasks(decision, task)
@@ -41,10 +45,12 @@ class Teitoku:
 
         results = []
         for subtask in subtasks:
+            await dashboard.unit_update("kaigun", "teitoku", "main", "in_progress", subtask["name"])
             print(f"[提督] 艦長への指令: {subtask['name']}")
             result = await kancho_execute(subtask, mode=mode)
             results.append(result)
 
+        await dashboard.unit_update("kaigun", "teitoku", "main", "completed")
         return {
             "status": "completed",
             "subtasks_count": len(subtasks),

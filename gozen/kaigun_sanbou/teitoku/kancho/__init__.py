@@ -33,6 +33,10 @@ class Kancho:
         mode: Literal["sequential", "parallel"] = "sequential",
     ) -> dict[str, Any]:
         """サブタスクを実行"""
+        from gozen.dashboard import get_dashboard
+        dashboard = get_dashboard()
+        await dashboard.unit_update("kaigun", "kancho", "main", "in_progress", subtask["name"])
+
         print(f"[艦長] 指令受領: {subtask['name']}")
 
         work_items = self._create_work_items(subtask)
@@ -50,6 +54,7 @@ class Kancho:
                 result = await kaihei_execute(i, item)
                 results.append(result)
 
+        await dashboard.unit_update("kaigun", "kancho", "main", "completed")
         return {
             "subtask_id": subtask["id"],
             "status": "completed",

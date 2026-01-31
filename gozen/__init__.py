@@ -44,6 +44,11 @@ from gozen.audit import (
     process_remand,
 )
 
+from gozen.dashboard import (
+    DashboardWriter,
+    get_dashboard,
+)
+
 __all__ = [
     # orchestrator
     "GozenOrchestrator",
@@ -68,4 +73,7 @@ __all__ = [
     "AuditManager",
     "AuditResult",
     "process_remand",
+    # dashboard
+    "DashboardWriter",
+    "get_dashboard",
 ]

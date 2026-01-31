@@ -29,7 +29,12 @@ class Kaihei:
 
     async def execute(self, work_item: dict[str, Any]) -> dict[str, Any]:
         """作業を実行"""
-        print(f"[海兵{self.worker_id}] 作業開始: {work_item.get('description', 'N/A')}")
+        from gozen.dashboard import get_dashboard
+        dashboard = get_dashboard()
+        desc = work_item.get("description", "N/A")
+
+        print(f"[海兵{self.worker_id}] 作業開始: {desc}")
+        await dashboard.unit_update("kaigun", "kaihei", str(self.worker_id), "in_progress", desc)
 
         # 実際の作業をシミュレート
         # 本番ではClaude Code CLIを呼び出す
@@ -44,6 +49,7 @@ class Kaihei:
         }
 
         print(f"[海兵{self.worker_id}] 作業完了")
+        await dashboard.unit_update("kaigun", "kaihei", str(self.worker_id), "completed", desc)
         return result
 
 

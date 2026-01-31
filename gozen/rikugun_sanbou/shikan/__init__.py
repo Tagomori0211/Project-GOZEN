@@ -34,6 +34,10 @@ class Shikan:
         mode: Literal["sequential", "parallel"] = "sequential",
     ) -> dict[str, Any]:
         """決定を検証・実行"""
+        from gozen.dashboard import get_dashboard
+        dashboard = get_dashboard()
+        await dashboard.unit_update("rikugun", "shikan", "main", "in_progress")
+
         print(f"[士官] 指令受領。検証タスク開始...")
 
         verification_tasks = self._create_verification_tasks(decision, task)
@@ -51,6 +55,7 @@ class Shikan:
                 result = await hohei_execute(i, vtask)
                 results.append(result)
 
+        await dashboard.unit_update("rikugun", "shikan", "main", "completed")
         return {
             "status": "completed",
             "verification_count": len(verification_tasks),

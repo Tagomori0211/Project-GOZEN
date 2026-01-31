@@ -69,12 +69,17 @@ class RikugunSanbou:
 
     async def create_objection(self, task: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
         """海軍提案に対する異議を作成"""
+        from gozen.dashboard import get_dashboard
+        dashboard = get_dashboard()
+        await dashboard.unit_update("rikugun", "rikugun_sanbou", "main", "in_progress")
+
         mission = task.get("mission", "")
         title = f"陸軍異議: {_safe_truncate(mission)}"
 
         # API呼び出しを試行
         try:
             api_result = await self._call_api(mission, task, proposal)
+            await dashboard.unit_update("rikugun", "rikugun_sanbou", "main", "completed")
             return {
                 "type": "objection",
                 "from": "rikugun_sanbou",
@@ -92,6 +97,7 @@ class RikugunSanbou:
             }
         except Exception as e:
             print(f"⚠️ [陸軍参謀] API呼び出し失敗、テンプレート応答にフォールバック: {e}")
+            await dashboard.unit_update("rikugun", "rikugun_sanbou", "main", "completed", "フォールバック")
             return self._fallback_objection(mission, task, proposal, title)
 
     async def _call_api(

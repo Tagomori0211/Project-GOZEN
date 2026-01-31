@@ -69,6 +69,10 @@ class KaigunSanbou:
 
     async def create_proposal(self, task: dict[str, Any]) -> dict[str, Any]:
         """タスクに対する提案を作成"""
+        from gozen.dashboard import get_dashboard
+        dashboard = get_dashboard()
+        await dashboard.unit_update("kaigun", "kaigun_sanbou", "main", "in_progress")
+
         mission = task.get("mission", "")
         requirements = task.get("requirements", [])
         title = f"海軍提案: {_safe_truncate(mission)}"
@@ -76,6 +80,7 @@ class KaigunSanbou:
         # API呼び出しを試行
         try:
             api_result = await self._call_api(mission, requirements)
+            await dashboard.unit_update("kaigun", "kaigun_sanbou", "main", "completed")
             return {
                 "type": "proposal",
                 "from": "kaigun_sanbou",
@@ -93,6 +98,7 @@ class KaigunSanbou:
             }
         except Exception as e:
             print(f"⚠️ [海軍参謀] API呼び出し失敗、テンプレート応答にフォールバック: {e}")
+            await dashboard.unit_update("kaigun", "kaigun_sanbou", "main", "completed", "フォールバック")
             return self._fallback_proposal(mission, requirements, title)
 
     async def _call_api(self, mission: str, requirements: list[str]) -> dict[str, Any]:

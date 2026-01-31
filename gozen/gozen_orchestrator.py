@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from gozen.dashboard import get_dashboard
 from gozen.kaigun_sanbou import create_proposal as kaigun_create_proposal
 from gozen.rikugun_sanbou import create_objection as rikugun_create_objection
 
@@ -29,9 +30,11 @@ class GozenOrchestrator:
         self,
         default_mode: Literal["sequential", "parallel"] = "sequential",
         plan: Literal["pro", "max5x", "max20x"] = "pro",
+        council_mode: Literal["council", "execute"] = "council",
     ) -> None:
         self.mode = default_mode
         self.plan = plan
+        self.council_mode = council_mode
         self.queue_dir = Path(__file__).parent.parent / "queue"
         self.status_dir = Path(__file__).parent.parent / "status"
 
@@ -41,20 +44,34 @@ class GozenOrchestrator:
     async def execute_full_cycle(self, task: dict[str, Any]) -> dict[str, Any]:
         """御前会議の完全サイクルを実行"""
         task_id = task.get("task_id", f"TASK-{datetime.now().strftime('%Y%m%d%H%M%S')}")
+        dashboard = get_dashboard()
+        mission = task.get("mission", "")
+
+        await dashboard.session_start(task_id, mission, self.council_mode)
 
         print(f"\n🏯 御前会議開始: {task_id}")
         print("=" * 60)
 
+        # --- 海軍提案 ---
+        await dashboard.phase_update("proposal", "in_progress")
         print("\n🌊 [海軍参謀] 提案作成中...")
         proposal = await kaigun_create_proposal(task)
         self._save_to_queue("proposal", task_id, proposal)
         print(f"   提案完了: {proposal.get('title', 'N/A')}")
+        await dashboard.proposal_update("completed", proposal.get("summary", ""))
+        await dashboard.phase_update("proposal", "completed")
 
+        # --- 陸軍異議 ---
+        await dashboard.phase_update("objection", "in_progress")
         print("\n🪖 [陸軍参謀] 異議検討中...")
         objection = await rikugun_create_objection(task, proposal)
         self._save_to_queue("objection", task_id, objection)
         print(f"   異議完了: {objection.get('title', 'N/A')}")
+        await dashboard.objection_update("completed", objection.get("summary", ""))
+        await dashboard.phase_update("objection", "completed")
 
+        # --- 裁定 ---
+        await dashboard.phase_update("decision", "in_progress")
         print("\n👑 [国家元首] 裁定をお待ちしています...")
         print("-" * 60)
         print("【海軍の主張】")
@@ -66,19 +83,47 @@ class GozenOrchestrator:
         decision = await self._wait_for_decision(task_id, proposal, objection)
         self._save_to_queue("decision", task_id, decision)
 
-        if decision.get("approved"):
-            print("\n⚔️ [実行部隊] 指令開始...")
-            execution_result = await self._execute_orders(decision, task)
-            self._save_to_queue("execution", task_id, execution_result)
-            return {
-                "status": "completed",
-                "task_id": task_id,
-                "decision": decision,
-                "result": execution_result,
-            }
+        adopted = decision.get("adopted", "")
+        choice_labels = {
+            "kaigun": "海軍案を採択",
+            "rikugun": "陸軍案を採択",
+            "integrated": "統合案を作成",
+        }
+        await dashboard.decision_update(
+            choice_labels.get(adopted, "却下"), adopted or "none"
+        )
+        await dashboard.phase_update("decision", "completed")
 
+        if decision.get("approved"):
+            if self.council_mode == "execute":
+                await dashboard.phase_update("execution", "in_progress")
+                print("\n⚔️ [実行部隊] 指令開始...")
+                execution_result = await self._execute_orders(decision, task)
+                self._save_to_queue("execution", task_id, execution_result)
+                await dashboard.phase_update("execution", "completed")
+                await dashboard.session_end("completed")
+                return {
+                    "status": "completed",
+                    "mode": "execute",
+                    "task_id": task_id,
+                    "decision": decision,
+                    "result": execution_result,
+                }
+            else:
+                print("\n📜 裁定完了。実行部隊の展開はありません。")
+                await dashboard.session_end("decided")
+                return {
+                    "status": "decided",
+                    "mode": "council",
+                    "task_id": task_id,
+                    "decision": decision,
+                    "result": None,
+                }
+
+        await dashboard.session_end("rejected")
         return {
             "status": "rejected",
+            "mode": self.council_mode,
             "task_id": task_id,
             "decision": decision,
             "result": None,
