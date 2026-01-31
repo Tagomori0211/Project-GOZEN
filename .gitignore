@@ -14,6 +14,7 @@ parts/
 sdist/
 var/
 wheels/
+*.egg-info/
 .env
 .venv
 env/
