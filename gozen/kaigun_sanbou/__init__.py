@@ -7,8 +7,44 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any, Optional
+
+from gozen.character import get_character
+
+
+def _safe_truncate(text: str, max_len: int = 30) -> str:
+    """文字列を安全に切り詰める（文字単位）"""
+    if len(text) <= max_len:
+        return text
+    return text[:max_len] + "..."
+
+
+def _parse_json_response(content: str) -> Optional[dict[str, Any]]:
+    """LLMレスポンスからJSONを抽出・パースする"""
+    text = content.strip()
+
+    # ```json ... ``` ブロックを抽出
+    if "```json" in text:
+        try:
+            start = text.index("```json") + 7
+            end = text.index("```", start)
+            text = text[start:end].strip()
+        except ValueError:
+            pass
+    elif "```" in text:
+        try:
+            start = text.index("```") + 3
+            end = text.index("```", start)
+            text = text[start:end].strip()
+        except ValueError:
+            pass
+
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
 
 
 class KaigunSanbou:
@@ -29,40 +65,134 @@ class KaigunSanbou:
         self.role = "海軍参謀"
         self.model = "Claude"
         self.philosophy = "理想・論理・スケーラビリティ"
+        self._character = get_character("kaigun_sanbou")
 
     async def create_proposal(self, task: dict[str, Any]) -> dict[str, Any]:
         """タスクに対する提案を作成"""
         mission = task.get("mission", "")
         requirements = task.get("requirements", [])
+        title = f"海軍提案: {_safe_truncate(mission)}"
 
+        # API呼び出しを試行
+        try:
+            api_result = await self._call_api(mission, requirements)
+            return {
+                "type": "proposal",
+                "from": "kaigun_sanbou",
+                "timestamp": datetime.now().isoformat(),
+                "title": title,
+                "summary": api_result.get("summary", ""),
+                "architecture": api_result.get(
+                    "architecture",
+                    self._design_architecture_template(),
+                ),
+                "key_points": api_result.get("key_points", []),
+                "timeline": api_result.get("timeline", {}),
+                "benefits": api_result.get("benefits", []),
+                "risks": api_result.get("risks", []),
+            }
+        except Exception as e:
+            print(f"⚠️ [海軍参謀] API呼び出し失敗、テンプレート応答にフォールバック: {e}")
+            return self._fallback_proposal(mission, requirements, title)
+
+    async def _call_api(self, mission: str, requirements: list[str]) -> dict[str, Any]:
+        """APIを呼び出して提案を生成"""
+        from gozen.api_client import get_client
+
+        # kaigun_sanbou は CLAUDE_CODE_CLI のため、teitoku (Anthropic API) を使用
+        client = get_client("teitoku")
+
+        char = self._character
+        req_str = "\n".join(f"- {r}" for r in requirements) if requirements else "- 未指定"
+
+        system_prompt = (
+            f"あなたは「{char.name}」です。\n"
+            f"{char.intro}\n\n"
+            f"哲学: {char.philosophy}\n\n"
+            "口調: です・ます調（薩摩・海軍兵学校風）\n"
+            "- 「〜を提案いたします」「〜と判断いたします」\n"
+            "- 「検証なき信頼は敗北への道」\n\n"
+            "あなたの役割は、海軍参謀として理想・論理・スケーラビリティを重視した"
+            "技術提案を作成することです。\n"
+            "3年先を見据えたアーキテクチャ設計を行い、"
+            "「美しく壮大な設計図」を描いてください。"
+        )
+
+        user_prompt = (
+            "以下の任務に対する技術提案を作成してください。\n\n"
+            f"## 任務\n{mission}\n\n"
+            f"## 要件\n{req_str}\n\n"
+            "## 出力形式\n"
+            "以下のJSON形式で回答してください。"
+            "JSONのみを出力し、他のテキストは含めないでください。\n\n"
+            "```json\n"
+            "{\n"
+            '  "summary": "提案の全体概要（海軍参謀の口調で、300-500文字）",\n'
+            '  "architecture": {\n'
+            '    "type": "アーキテクチャの種類",\n'
+            '    "components": [\n'
+            '      {"name": "コンポーネント名", "purpose": "目的"}\n'
+            "    ],\n"
+            '    "scalability": "スケーラビリティ方針",\n'
+            '    "automation_level": "自動化レベル"\n'
+            "  },\n"
+            '  "key_points": ["要点1", "要点2", "要点3", "要点4"],\n'
+            '  "timeline": {\n'
+            '    "phase1": "フェーズ1の内容",\n'
+            '    "phase2": "フェーズ2の内容",\n'
+            '    "phase3": "フェーズ3の内容"\n'
+            "  },\n"
+            '  "benefits": ["利点1", "利点2", "利点3"],\n'
+            '  "risks": ["リスク1", "リスク2", "リスク3"]\n'
+            "}\n"
+            "```"
+        )
+
+        result = await client.call(user_prompt, system=system_prompt)
+        content = result.get("content", "")
+
+        # JSONパース試行
+        parsed = _parse_json_response(content)
+        if parsed:
+            return parsed
+
+        # JSONパース失敗時はテキスト全体をsummaryとして返す
+        print("⚠️ [海軍参謀] JSONパース失敗、テキスト応答をsummaryとして使用")
+        return {"summary": content}
+
+    # ===========================================================
+    # フォールバック: テンプレート応答
+    # ===========================================================
+
+    def _fallback_proposal(
+        self, mission: str, requirements: list[str], title: str
+    ) -> dict[str, Any]:
+        """API失敗時のテンプレート応答"""
         return {
             "type": "proposal",
             "from": "kaigun_sanbou",
             "timestamp": datetime.now().isoformat(),
-            "title": f"海軍提案: {mission[:30]}...",
-            "summary": self._generate_summary(mission, requirements),
-            "architecture": self._design_architecture(mission, requirements),
-            "key_points": self._extract_key_points(requirements),
-            "timeline": self._estimate_timeline(requirements),
-            "benefits": self._list_benefits(),
-            "risks": self._identify_risks(),
+            "title": title,
+            "summary": self._generate_summary_template(mission, requirements),
+            "architecture": self._design_architecture_template(),
+            "key_points": self._extract_key_points_template(),
+            "timeline": self._estimate_timeline_template(),
+            "benefits": self._list_benefits_template(),
+            "risks": self._identify_risks_template(),
         }
 
-    def _generate_summary(self, mission: str, requirements: list[str]) -> str:
+    def _generate_summary_template(self, mission: str, requirements: list[str]) -> str:
         req_str = ", ".join(requirements) if requirements else "未指定"
-        return f"""
-【海軍参謀の提案】
+        return (
+            "【海軍参謀の提案】\n\n"
+            f"任務「{mission}」に対し、以下のアーキテクチャを提案いたします。\n\n"
+            "・スケーラビリティを最優先\n"
+            "・将来の拡張を見据えた設計\n"
+            "・完全自動化による運用負荷軽減\n\n"
+            f"要件: {req_str}"
+        )
 
-任務「{mission}」に対し、以下のアーキテクチャを提案する。
-
-・スケーラビリティを最優先
-・将来の拡張を見据えた設計
-・完全自動化による運用負荷軽減
-
-要件: {req_str}
-"""
-
-    def _design_architecture(self, mission: str, requirements: list[str]) -> dict[str, Any]:
+    def _design_architecture_template(self) -> dict[str, Any]:
         return {
             "type": "ideal",
             "components": [
@@ -76,7 +206,7 @@ class KaigunSanbou:
             "automation_level": "full",
         }
 
-    def _extract_key_points(self, requirements: list[str]) -> list[str]:
+    def _extract_key_points_template(self) -> list[str]:
         return [
             "完全自動化による運用負荷ゼロ",
             "将来の200ユーザー対応を想定",
@@ -84,7 +214,7 @@ class KaigunSanbou:
             "GitOpsによる変更管理",
         ]
 
-    def _estimate_timeline(self, requirements: list[str]) -> dict[str, str]:
+    def _estimate_timeline_template(self) -> dict[str, str]:
         return {
             "week1-2": "インフラ基盤構築（k3s + MinIO）",
             "week3": "Terraform コード化",
@@ -93,7 +223,7 @@ class KaigunSanbou:
             "week6": "本運用移行",
         }
 
-    def _list_benefits(self) -> list[str]:
+    def _list_benefits_template(self) -> list[str]:
         return [
             "スケーラビリティ無制限",
             "自動フェイルオーバー",
@@ -101,7 +231,7 @@ class KaigunSanbou:
             "将来の拡張に対応",
         ]
 
-    def _identify_risks(self) -> list[str]:
+    def _identify_risks_template(self) -> list[str]:
         return [
             "初期構築コストが高い",
             "運用学習曲線が急",
