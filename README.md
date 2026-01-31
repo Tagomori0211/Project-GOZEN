@@ -107,7 +107,9 @@ pip install -r requirements.txt
 
 ## 🙌 クレジット
 
-設計・構想: しなり
+設計・構想: Tagomori0211
+このプロジェクトは以下の記事にインスパイアを受け開発されました。
+[Claude Codeで「AI部下10人」を作ったら、勝手にバグ直して「違反は切腹」ルールを追加してきて、オレは適当にしゃべるだけになった](https://zenn.dev/shio_shoppaize/articles/5fee11d03a11a1)
 
 ---
 
