@@ -105,8 +105,7 @@ class KaigunSanbou:
         """APIを呼び出して提案を生成"""
         from gozen.api_client import get_client
 
-        # kaigun_sanbou は CLAUDE_CODE_CLI のため、teitoku (Anthropic API) を使用
-        client = get_client("teitoku")
+        client = get_client("kaigun_sanbou")
 
         char = self._character
         req_str = "\n".join(f"- {r}" for r in requirements) if requirements else "- 未指定"

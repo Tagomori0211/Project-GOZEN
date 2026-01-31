@@ -8,8 +8,10 @@ Anthropic API と Gemini API のラッパー。
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import random
+import shutil
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -353,6 +355,122 @@ class GeminiClient(BaseAPIClient):
 
 
 # ============================================================
+# Claude Code CLI クライアント
+# ============================================================
+
+class ClaudeCodeClient(BaseAPIClient):
+    """Claude Code CLI クライアント（サブスクリプション枠使用）"""
+
+    DEFAULT_TIMEOUT = 300  # 秒
+
+    def __init__(self, rank: str, retry_config: Optional[RetryConfig] = None) -> None:
+        super().__init__(rank, retry_config)
+        self._claude_bin: Optional[str] = None
+
+    def _find_claude_binary(self) -> str:
+        """claude CLI バイナリのパスを検出"""
+        if self._claude_bin is None:
+            path = shutil.which("claude")
+            if path is None:
+                raise APIError(
+                    "claude CLI が見つかりません。"
+                    "Claude Code をインストールしてください: https://docs.anthropic.com/en/docs/claude-code"
+                )
+            self._claude_bin = path
+        return self._claude_bin
+
+    async def _call_api(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
+        claude_bin = self._find_claude_binary()
+        timeout = kwargs.get("timeout", self.DEFAULT_TIMEOUT)
+
+        cmd = [
+            claude_bin,
+            "--print",
+            "--output-format", "json",
+            "--model", self.config.model,
+        ]
+
+        system_prompt = kwargs.get("system", "")
+        if system_prompt:
+            cmd.extend(["--append-system-prompt", system_prompt])
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(input=prompt.encode("utf-8")),
+                timeout=timeout,
+            )
+
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise APIError(f"Claude CLI がタイムアウトしました（{timeout}秒）")
+
+        if proc.returncode != 0:
+            err_msg = stderr.decode("utf-8", errors="replace").strip()
+            self._classify_and_raise(err_msg, proc.returncode)
+
+        return self._parse_output(stdout.decode("utf-8", errors="replace"))
+
+    def _classify_and_raise(self, stderr_text: str, returncode: int) -> None:
+        """stderrからエラーを分類して適切な例外を送出"""
+        lower = stderr_text.lower()
+        if "rate" in lower or "429" in lower or "too many" in lower:
+            raise RateLimitError(f"Claude CLI レート制限: {stderr_text}")
+        elif "auth" in lower or "401" in lower or "403" in lower or "unauthorized" in lower:
+            raise AuthenticationError(f"Claude CLI 認証エラー: {stderr_text}")
+        else:
+            raise APIError(f"Claude CLI エラー (code={returncode}): {stderr_text}")
+
+    def _parse_output(self, stdout_text: str) -> dict[str, Any]:
+        """CLI JSON出力をパース"""
+        text = stdout_text.strip()
+        if not text:
+            raise APIError("Claude CLI から空の出力")
+
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            # JSON出力でない場合はテキストをそのまま返す
+            return {
+                "content": text,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+                "model": self.config.model,
+                "cost_usd": 0.0,
+            }
+
+        # Claude Code JSON出力形式: {"result": "...", "cost_usd": ..., ...}
+        content = data.get("result", data.get("content", ""))
+        cost_usd = data.get("cost_usd", 0.0)
+
+        return {
+            "content": content,
+            "usage": {"input_tokens": 0, "output_tokens": 0},
+            "model": self.config.model,
+            "cost_usd": cost_usd,
+        }
+
+    def _record_success(self, result: dict[str, Any], latency_ms: int) -> None:
+        """CLI出力の cost_usd を記録（トークン数は0）"""
+        record = APICallRecord(
+            rank=self.rank,
+            model=self.config.model,
+            input_tokens=0,
+            output_tokens=0,
+            cost_usd=result.get("cost_usd", 0.0),
+            latency_ms=latency_ms,
+            success=True,
+        )
+        self.tracker.record(record)
+
+
+# ============================================================
 # クライアントファクトリ
 # ============================================================
 
@@ -365,7 +483,7 @@ def get_client(rank: str, retry_config: Optional[RetryConfig] = None) -> BaseAPI
     elif config.method == InvocationMethod.GEMINI_API:
         return GeminiClient(rank, retry_config)
     elif config.method == InvocationMethod.CLAUDE_CODE_CLI:
-        raise NotImplementedError("Claude Code CLI はこのモジュールではサポートされていません")
+        return ClaudeCodeClient(rank, retry_config)
     else:
         raise ValueError(f"Unknown method: {config.method}")
 

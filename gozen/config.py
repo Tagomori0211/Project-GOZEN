@@ -65,33 +65,33 @@ RANK_CONFIG: dict[str, RankConfig] = {
         name_en="Admiral",
         branch=Branch.KAIGUN,
         model="claude-sonnet-4-5-20250514",
-        billing=BillingType.API,
-        method=InvocationMethod.ANTHROPIC_API,
+        billing=BillingType.SUBSCRIPTION,
+        method=InvocationMethod.CLAUDE_CODE_CLI,
         parallel=1,
-        cost_per_mtok_input=3.0,
-        cost_per_mtok_output=15.0,
+        cost_per_mtok_input=0.0,
+        cost_per_mtok_output=0.0,
     ),
     "kancho": RankConfig(
         name_ja="艦長",
         name_en="Captain",
         branch=Branch.KAIGUN,
         model="claude-sonnet-4-5-20250514",
-        billing=BillingType.API,
-        method=InvocationMethod.ANTHROPIC_API,
+        billing=BillingType.SUBSCRIPTION,
+        method=InvocationMethod.CLAUDE_CODE_CLI,
         parallel=1,
-        cost_per_mtok_input=3.0,
-        cost_per_mtok_output=15.0,
+        cost_per_mtok_input=0.0,
+        cost_per_mtok_output=0.0,
     ),
     "kaihei": RankConfig(
         name_ja="海兵",
         name_en="Marine",
         branch=Branch.KAIGUN,
         model="claude-haiku-4-5-20251001",
-        billing=BillingType.API,
-        method=InvocationMethod.ANTHROPIC_API,
+        billing=BillingType.SUBSCRIPTION,
+        method=InvocationMethod.CLAUDE_CODE_CLI,
         parallel=8,
-        cost_per_mtok_input=1.0,
-        cost_per_mtok_output=5.0,
+        cost_per_mtok_input=0.0,
+        cost_per_mtok_output=0.0,
     ),
 
     # === 陸軍系統（Gemini） ===
@@ -160,8 +160,8 @@ API_TIERS: dict[int, TierConfig] = {
 class CostEstimate:
     """月額コスト見積もり"""
     subscription: float = 20.0
-    teitoku_kancho: float = 7.5
-    kaihei: float = 15.0
+    teitoku_kancho: float = 0.0
+    kaihei: float = 0.0
     hohei: float = 7.5
     exchange_rate: float = 150.0
 
