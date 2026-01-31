@@ -10,6 +10,7 @@ setup(
     install_requires=[
         "pyyaml>=6.0",
         "anthropic>=0.18.0",
+        "google-generativeai>=0.8.0",
         "google-cloud-aiplatform>=1.38.0",
     ],
     entry_points={

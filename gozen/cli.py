@@ -24,13 +24,16 @@ def main() -> None:
         epilog="""
 例:
   # 順次実行（Pro推奨）
-  python -m gozen.cli --mode sequential task.yaml
+  gozen --mode sequential task.yaml
 
   # 並列実行（Max 5x推奨）
-  python -m gozen.cli --mode parallel --plan max5x task.yaml
+  gozen --mode parallel --plan max5x task.yaml
 
   # インタラクティブモード
-  python -m gozen.cli --interactive
+  gozen --interactive
+
+  # python -m でも起動可能
+  python -m gozen --interactive
 """,
     )
 
