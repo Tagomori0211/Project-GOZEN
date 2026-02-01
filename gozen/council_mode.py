@@ -299,11 +299,11 @@ async def interactive_decision(session: CouncilSession, manager: CouncilManager)
 
     print("\n【海軍の主張】")
     if session.proposal:
-        print(session.proposal.get("summary", "N/A")[:200])
+        print(session.proposal.get("summary", "N/A"))
 
     print("\n【陸軍の異議】")
     if session.objection:
-        print(session.objection.get("summary", "N/A")[:200])
+        print(session.objection.get("summary", "N/A"))
 
     print("\n選択肢:")
     print("  [1] 海軍案を採択")

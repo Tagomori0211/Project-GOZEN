@@ -75,9 +75,9 @@ class GozenOrchestrator:
         print("\n👑 [国家元首] 裁定をお待ちしています...")
         print("-" * 60)
         print("【海軍の主張】")
-        print(f"  {proposal.get('summary', 'N/A')[:200]}")
+        print(f"  {proposal.get('summary', 'N/A')}")
         print("\n【陸軍の異議】")
-        print(f"  {objection.get('summary', 'N/A')[:200]}")
+        print(f"  {objection.get('summary', 'N/A')}")
         print("-" * 60)
 
         decision = await self._wait_for_decision(task_id, proposal, objection)
