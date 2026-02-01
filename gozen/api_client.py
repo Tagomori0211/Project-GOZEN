@@ -195,6 +195,10 @@ class BaseAPIClient(ABC):
                 self._record_success(result, latency)
                 return result
 
+            except AuthenticationError:
+                # 認証・課金エラーはリトライしても無意味
+                raise
+
             except RateLimitError as e:
                 last_error = e
                 if retry < self.retry_config.max_retries:
@@ -292,6 +296,12 @@ class AnthropicClient(BaseAPIClient):
                 raise RateLimitError(str(e))
             elif "auth" in error_str or "401" in error_str or "403" in error_str:
                 raise AuthenticationError(str(e))
+            elif "credit" in error_str or "balance" in error_str or "billing" in error_str:
+                raise AuthenticationError(
+                    f"Anthropic APIクレジット不足: {e}\n"
+                    "ヒント: このランクはCLAUDE_CODE_CLI（サブスク）を使用すべきです。"
+                    "config.pyのmethod設定を確認してください。"
+                )
             else:
                 raise APIError(str(e))
 
@@ -349,6 +359,8 @@ class GeminiClient(BaseAPIClient):
             if "rate" in error_str or "429" in error_str or "quota" in error_str:
                 raise RateLimitError(str(e))
             elif "auth" in error_str or "api key" in error_str:
+                raise AuthenticationError(str(e))
+            elif "billing" in error_str or "payment" in error_str:
                 raise AuthenticationError(str(e))
             else:
                 raise APIError(str(e))
@@ -425,6 +437,8 @@ class ClaudeCodeClient(BaseAPIClient):
             raise RateLimitError(f"Claude CLI レート制限: {stderr_text}")
         elif "auth" in lower or "401" in lower or "403" in lower or "unauthorized" in lower:
             raise AuthenticationError(f"Claude CLI 認証エラー: {stderr_text}")
+        elif "credit" in lower or "balance" in lower or "billing" in lower:
+            raise AuthenticationError(f"Claude CLI クレジット不足: {stderr_text}")
         else:
             raise APIError(f"Claude CLI エラー (code={returncode}): {stderr_text}")
 
@@ -478,14 +492,18 @@ def get_client(rank: str, retry_config: Optional[RetryConfig] = None) -> BaseAPI
     """階級に応じたAPIクライアントを取得"""
     config = get_rank_config(rank)
 
-    if config.method == InvocationMethod.ANTHROPIC_API:
-        return AnthropicClient(rank, retry_config)
-    elif config.method == InvocationMethod.GEMINI_API:
-        return GeminiClient(rank, retry_config)
-    elif config.method == InvocationMethod.CLAUDE_CODE_CLI:
-        return ClaudeCodeClient(rank, retry_config)
-    else:
+    client_map: dict[InvocationMethod, type[BaseAPIClient]] = {
+        InvocationMethod.CLAUDE_CODE_CLI: ClaudeCodeClient,
+        InvocationMethod.ANTHROPIC_API: AnthropicClient,
+        InvocationMethod.GEMINI_API: GeminiClient,
+    }
+
+    client_cls = client_map.get(config.method)
+    if client_cls is None:
         raise ValueError(f"Unknown method: {config.method}")
+
+    print(f"  [{rank}] {client_cls.__name__} (model={config.model}, method={config.method.value})")
+    return client_cls(rank, retry_config)
 
 
 # ============================================================
