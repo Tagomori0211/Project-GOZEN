@@ -13,6 +13,7 @@ import os
 import random
 import shutil
 import time
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -321,7 +322,9 @@ class GeminiClient(BaseAPIClient):
     def _get_client(self) -> Any:
         if self._client is None:
             try:
-                import google.generativeai as genai
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=FutureWarning)
+                    import google.generativeai as genai
                 genai.configure(api_key=self.api_key)
                 self._client = genai.GenerativeModel(self.config.model)
             except ImportError:
@@ -424,11 +427,21 @@ class ClaudeCodeClient(BaseAPIClient):
             await proc.wait()
             raise APIError(f"Claude CLI がタイムアウトしました（{timeout}秒）")
 
+        stdout_text = stdout.decode("utf-8", errors="replace").strip()
+        stderr_text = stderr.decode("utf-8", errors="replace").strip()
+
+        # Claude CLI はエラー時も stdout に JSON を返す（stderr は空のことがある）
         if proc.returncode != 0:
-            err_msg = stderr.decode("utf-8", errors="replace").strip()
+            err_msg = stderr_text
+            if not err_msg and stdout_text:
+                try:
+                    data = json.loads(stdout_text)
+                    err_msg = data.get("result", stdout_text)
+                except json.JSONDecodeError:
+                    err_msg = stdout_text
             self._classify_and_raise(err_msg, proc.returncode)
 
-        return self._parse_output(stdout.decode("utf-8", errors="replace"))
+        return self._parse_output(stdout_text)
 
     def _classify_and_raise(self, stderr_text: str, returncode: int) -> None:
         """stderrからエラーを分類して適切な例外を送出"""
@@ -443,40 +456,61 @@ class ClaudeCodeClient(BaseAPIClient):
             raise APIError(f"Claude CLI エラー (code={returncode}): {stderr_text}")
 
     def _parse_output(self, stdout_text: str) -> dict[str, Any]:
-        """CLI JSON出力をパース"""
-        text = stdout_text.strip()
-        if not text:
+        """CLI JSON出力をパース
+
+        Claude Code の --output-format json 出力形式:
+        {
+          "type": "result",
+          "is_error": false,
+          "result": "応答テキスト",
+          "total_cost_usd": 0.025,
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 200,
+            ...
+          }
+        }
+        """
+        if not stdout_text:
             raise APIError("Claude CLI から空の出力")
 
         try:
-            data = json.loads(text)
+            data = json.loads(stdout_text)
         except json.JSONDecodeError:
-            # JSON出力でない場合はテキストをそのまま返す
             return {
-                "content": text,
+                "content": stdout_text,
                 "usage": {"input_tokens": 0, "output_tokens": 0},
                 "model": self.config.model,
                 "cost_usd": 0.0,
             }
 
-        # Claude Code JSON出力形式: {"result": "...", "cost_usd": ..., ...}
-        content = data.get("result", data.get("content", ""))
-        cost_usd = data.get("cost_usd", 0.0)
+        # is_error チェック
+        if data.get("is_error"):
+            error_msg = data.get("result", "不明なCLIエラー")
+            self._classify_and_raise(error_msg, 1)
+
+        content = data.get("result", "")
+        cost_usd = data.get("total_cost_usd", 0.0)
+        usage = data.get("usage", {})
 
         return {
             "content": content,
-            "usage": {"input_tokens": 0, "output_tokens": 0},
+            "usage": {
+                "input_tokens": usage.get("input_tokens", 0),
+                "output_tokens": usage.get("output_tokens", 0),
+            },
             "model": self.config.model,
             "cost_usd": cost_usd,
         }
 
     def _record_success(self, result: dict[str, Any], latency_ms: int) -> None:
-        """CLI出力の cost_usd を記録（トークン数は0）"""
+        """CLI出力の cost_usd とトークン数を記録"""
+        usage = result.get("usage", {})
         record = APICallRecord(
             rank=self.rank,
             model=self.config.model,
-            input_tokens=0,
-            output_tokens=0,
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
             cost_usd=result.get("cost_usd", 0.0),
             latency_ms=latency_ms,
             success=True,
