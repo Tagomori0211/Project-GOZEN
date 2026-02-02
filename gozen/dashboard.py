@@ -64,6 +64,11 @@ class DashboardWriter:
         # 活動ログ（新しいものが先頭）
         self._log: list[str] = []
 
+        # 書記記録（PCAサイクル用）
+        self._council_records: list[dict[str, Any]] = []
+        self._refinement_records: list[dict[str, Any]] = []
+        self._escalation_report: str = ""
+
     # =================================================================
     # Public API
     # =================================================================
@@ -97,6 +102,9 @@ class DashboardWriter:
 
         self._units = {}
         self._log = []
+        self._council_records = []
+        self._refinement_records = []
+        self._escalation_report = ""
 
         self._add_log(f"セッション開始: {task_id}")
         await self._write_dashboard()
@@ -172,6 +180,55 @@ class DashboardWriter:
         async with self._lock:
             self._final_status = final_status
             self._add_log(f"セッション終了: {final_status}")
+            await self._write_dashboard()
+
+    async def write_council_record(
+        self,
+        iteration: int,
+        proposal_summary: str,
+        objection_summary: str,
+        sticking_points: list[dict[str, Any]],
+        decision: Optional[str] = None,
+    ) -> None:
+        """会議記録を追記（書記から呼ばれる）"""
+        if not self._initialized:
+            return
+        async with self._lock:
+            self._council_records.append({
+                "iteration": iteration,
+                "proposal_summary": proposal_summary,
+                "objection_summary": objection_summary,
+                "sticking_points": sticking_points,
+                "decision": decision,
+            })
+            self._add_log(f"書記記録: PCA Iteration {iteration}")
+            await self._write_dashboard()
+
+    async def write_escalation(self, report: str) -> None:
+        """エスカレーションレポートを書き込み"""
+        if not self._initialized:
+            return
+        async with self._lock:
+            self._escalation_report = report
+            self._add_log("ESCALATION: 膠着レポート記録")
+            await self._write_dashboard()
+
+    async def write_refinement(
+        self,
+        iteration: int,
+        refined_content: str,
+        review_content: str,
+    ) -> None:
+        """洗練記録を追記"""
+        if not self._initialized:
+            return
+        async with self._lock:
+            self._refinement_records.append({
+                "iteration": iteration,
+                "refined": refined_content,
+                "review": review_content,
+            })
+            self._add_log(f"洗練記録: Iteration {iteration}")
             await self._write_dashboard()
 
     # =================================================================
@@ -275,6 +332,39 @@ class DashboardWriter:
                 self._render_unit_line("rikugun", "hohei", str(i), f"{prefix} 歩兵{i}")
             )
         lines.append("")
+
+        # --- 書記記録（PCA） ---
+        if self._council_records:
+            lines.append("## 書記記録（PCAサイクル）")
+            lines.append("")
+            lines.append("| Iter | 海軍提案 | 陸軍異議 | 争点数 | 裁定 |")
+            lines.append("|------|---------|---------|--------|------|")
+            for rec in self._council_records:
+                it = rec.get("iteration", "?")
+                ps = rec.get("proposal_summary", "")[:40]
+                os_ = rec.get("objection_summary", "")[:40]
+                sp = len(rec.get("sticking_points", []))
+                dec = rec.get("decision", "-") or "-"
+                lines.append(f"| {it} | {ps} | {os_} | {sp} | {dec} |")
+            lines.append("")
+
+        # --- 洗練記録 ---
+        if self._refinement_records:
+            lines.append("## 洗練記録")
+            lines.append("")
+            for rec in self._refinement_records:
+                it = rec.get("iteration", "?")
+                lines.append(f"### 洗練 Iteration {it}")
+                lines.append(f"- 詳細化: {rec.get('refined', 'N/A')[:80]}")
+                lines.append(f"- レビュー: {rec.get('review', 'N/A')[:80]}")
+                lines.append("")
+
+        # --- エスカレーション ---
+        if self._escalation_report:
+            lines.append("---")
+            lines.append("")
+            lines.append(self._escalation_report)
+            lines.append("")
 
         # --- 裁定 ---
         if self._decision_choice or self._decision_adopted:

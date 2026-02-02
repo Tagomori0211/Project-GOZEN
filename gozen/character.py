@@ -223,6 +223,33 @@ HOHEI = CharacterTemplate(
 
 
 # ============================================================
+# 書記（中立）
+# ============================================================
+
+SHOKI = CharacterTemplate(
+    name="書記",
+    branch="中立",
+    formality=Formality.FORMAL,
+    proposal_phrases=[
+        "議事録を作成いたします",
+        "両軍の主張を要約いたします",
+        "折衷案を起草いたします",
+    ],
+    objection_phrases=[],  # 書記は異議を唱えない
+    approval_phrases=[
+        "記録を承認いたします",
+    ],
+    rejection_phrases=[],
+    verification_phrases=[
+        "記録に誤りがないか確認いたします",
+        "両軍の確認を求めます",
+    ],
+    intro="書記、着任いたしました。中立の立場で議事を記録いたします。",
+    philosophy="中立・正確・迅速。議事の真実を記録する。",
+)
+
+
+# ============================================================
 # ゼロトラスト対話ユーティリティ
 # ============================================================
 
@@ -270,6 +297,7 @@ CHARACTER_MAP: dict[str, CharacterTemplate] = {
     "teitoku": TEITOKU,
     "kancho": KANCHO,
     "kaihei": KAIHEI,
+    "shoki": SHOKI,
     "rikugun_sanbou": RIKUGUN_SANBOU,
     "shikan": SHIKAN,
     "hohei": HOHEI,

@@ -1,7 +1,11 @@
 """
 Project GOZEN - 設定モジュール
 
-階級体系、モデル設定、課金方式を一元管理する。
+階級体系、モデル設定、セキュリティレベル別構成、課金方式を一元管理する。
+
+SecurityLevel:
+  PUBLIC       - API利用可（Claude API / Gemini API）
+  CONFIDENTIAL - オンプレ必須（Ollama / Qwen）
 """
 
 from dataclasses import dataclass
@@ -31,6 +35,36 @@ class InvocationMethod(Enum):
     LOCAL_LLM = "local_llm"
 
 
+class SecurityLevel(Enum):
+    """セキュリティレベル"""
+    PUBLIC = "public"              # API許可
+    CONFIDENTIAL = "confidential"  # オンプレ必須
+
+
+class InferenceBackend(Enum):
+    """推論バックエンド"""
+    CLAUDE_API = "claude_api"
+    GEMINI_API = "gemini_api"
+    OLLAMA_LOCAL = "ollama_local"
+
+
+# ============================================================
+# InferenceBackend → 既存Enum マッピング（後方互換用）
+# ============================================================
+
+_BACKEND_TO_METHOD: dict[InferenceBackend, InvocationMethod] = {
+    InferenceBackend.CLAUDE_API: InvocationMethod.ANTHROPIC_API,
+    InferenceBackend.GEMINI_API: InvocationMethod.GEMINI_API,
+    InferenceBackend.OLLAMA_LOCAL: InvocationMethod.LOCAL_LLM,
+}
+
+_BACKEND_TO_BILLING: dict[InferenceBackend, BillingType] = {
+    InferenceBackend.CLAUDE_API: BillingType.API,
+    InferenceBackend.GEMINI_API: BillingType.API,
+    InferenceBackend.OLLAMA_LOCAL: BillingType.LOCAL,
+}
+
+
 @dataclass(frozen=True)
 class RankConfig:
     """階級ごとの設定（イミュータブル）"""
@@ -40,83 +74,181 @@ class RankConfig:
     model: str
     billing: BillingType
     method: InvocationMethod
+    backend: InferenceBackend = InferenceBackend.OLLAMA_LOCAL
     parallel: int = 1
     cost_per_mtok_input: float = 0.0
     cost_per_mtok_output: float = 0.0
 
 
+def _rc(
+    name_ja: str,
+    name_en: str,
+    branch: Branch,
+    model: str,
+    backend: InferenceBackend,
+    parallel: int = 1,
+    cost_per_mtok_input: float = 0.0,
+    cost_per_mtok_output: float = 0.0,
+) -> RankConfig:
+    """RankConfig生成ヘルパー（backendからmethod/billingを自動導出）"""
+    return RankConfig(
+        name_ja=name_ja,
+        name_en=name_en,
+        branch=branch,
+        model=model,
+        billing=_BACKEND_TO_BILLING[backend],
+        method=_BACKEND_TO_METHOD[backend],
+        backend=backend,
+        parallel=parallel,
+        cost_per_mtok_input=cost_per_mtok_input,
+        cost_per_mtok_output=cost_per_mtok_output,
+    )
+
+
 # ============================================================
-# 階級×モデル×課金方式 マッピング
+# セキュリティレベル別 階級×モデル×課金方式 マッピング
+#
+# 設計思想:
+#   - 参謀層は最上位モデルで本気の議論
+#   - 実行層は軽量モデルでコスト効率重視
+#   - CONFIDENTIALは逐次ロード前提で32B/14B/7Bの階層化
 # ============================================================
 
-RANK_CONFIG: dict[str, RankConfig] = {
-    # === 海軍系統（Qwen2.5 via Ollama） ===
-    "kaigun_sanbou": RankConfig(
-        name_ja="海軍参謀",
-        name_en="Naval Staff",
-        branch=Branch.KAIGUN,
-        model="qwen2.5:72b-instruct-q4_K_M",
-        billing=BillingType.LOCAL,
-        method=InvocationMethod.LOCAL_LLM,
-        parallel=1,
-    ),
-    "teitoku": RankConfig(
-        name_ja="提督",
-        name_en="Admiral",
-        branch=Branch.KAIGUN,
-        model="qwen2.5:32b-instruct-q4_K_M",
-        billing=BillingType.LOCAL,
-        method=InvocationMethod.LOCAL_LLM,
-        parallel=1,
-    ),
-    "kancho": RankConfig(
-        name_ja="艦長",
-        name_en="Captain",
-        branch=Branch.KAIGUN,
-        model="qwen2.5:14b-instruct",
-        billing=BillingType.LOCAL,
-        method=InvocationMethod.LOCAL_LLM,
-        parallel=1,
-    ),
-    "kaihei": RankConfig(
-        name_ja="海兵",
-        name_en="Marine",
-        branch=Branch.KAIGUN,
-        model="qwen2.5:7b-instruct",
-        billing=BillingType.LOCAL,
-        method=InvocationMethod.LOCAL_LLM,
-        parallel=4,
-    ),
+RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
+    SecurityLevel.PUBLIC: {
+        # === 参謀層（最上位モデル・高度な推論） ===
+        "kaigun_sanbou": _rc(
+            name_ja="海軍参謀", name_en="Naval Staff",
+            branch=Branch.KAIGUN,
+            model="claude-opus-4-5-20251101",
+            backend=InferenceBackend.CLAUDE_API,
+        ),
+        "rikugun_sanbou": _rc(
+            name_ja="陸軍参謀", name_en="Army Staff",
+            branch=Branch.RIKUGUN,
+            model="gemini-1.5-pro",
+            backend=InferenceBackend.GEMINI_API,
+        ),
 
-    # === 陸軍系統（Qwen2.5 via Ollama） ===
-    "rikugun_sanbou": RankConfig(
-        name_ja="陸軍参謀",
-        name_en="Army Staff",
-        branch=Branch.RIKUGUN,
-        model="qwen2.5:72b-instruct-q4_K_M",
-        billing=BillingType.LOCAL,
-        method=InvocationMethod.LOCAL_LLM,
-        parallel=1,
-    ),
-    "shikan": RankConfig(
-        name_ja="士官",
-        name_en="Officer",
-        branch=Branch.RIKUGUN,
-        model="qwen2.5:14b-instruct",
-        billing=BillingType.LOCAL,
-        method=InvocationMethod.LOCAL_LLM,
-        parallel=1,
-    ),
-    "hohei": RankConfig(
-        name_ja="歩兵",
-        name_en="Infantry",
-        branch=Branch.RIKUGUN,
-        model="qwen2.5:7b-instruct",
-        billing=BillingType.LOCAL,
-        method=InvocationMethod.LOCAL_LLM,
-        parallel=4,
-    ),
+        # === 中間層（Sonnet/Flash） ===
+        "teitoku": _rc(
+            name_ja="提督", name_en="Admiral",
+            branch=Branch.KAIGUN,
+            model="claude-sonnet-4-5-20250929",
+            backend=InferenceBackend.CLAUDE_API,
+        ),
+        "shikan": _rc(
+            name_ja="士官", name_en="Officer",
+            branch=Branch.RIKUGUN,
+            model="gemini-2.5-flash",
+            backend=InferenceBackend.GEMINI_API,
+        ),
+
+        # === 書記（軽量・高速） ===
+        "shoki": _rc(
+            name_ja="書記", name_en="Clerk",
+            branch=Branch.KAIGUN,
+            model="claude-haiku-4-5-20251001",
+            backend=InferenceBackend.CLAUDE_API,
+        ),
+
+        # === 実行層（軽量・並列） ===
+        "kancho": _rc(
+            name_ja="艦長", name_en="Captain",
+            branch=Branch.KAIGUN,
+            model="claude-haiku-4-5-20251001",
+            backend=InferenceBackend.CLAUDE_API,
+        ),
+        "kaihei": _rc(
+            name_ja="海兵", name_en="Marine",
+            branch=Branch.KAIGUN,
+            model="claude-haiku-4-5-20251001",
+            backend=InferenceBackend.CLAUDE_API,
+            parallel=8,
+        ),
+        "hohei": _rc(
+            name_ja="歩兵", name_en="Infantry",
+            branch=Branch.RIKUGUN,
+            model="gemini-2.5-flash",
+            backend=InferenceBackend.GEMINI_API,
+            parallel=4,
+        ),
+    },
+    SecurityLevel.CONFIDENTIAL: {
+        # === 参謀層（32B・逐次ロード） ===
+        "kaigun_sanbou": _rc(
+            name_ja="海軍参謀", name_en="Naval Staff",
+            branch=Branch.KAIGUN,
+            model="qwen2.5:32b-instruct-q4_K_M",
+            backend=InferenceBackend.OLLAMA_LOCAL,
+        ),
+        "rikugun_sanbou": _rc(
+            name_ja="陸軍参謀", name_en="Army Staff",
+            branch=Branch.RIKUGUN,
+            model="qwen2.5:32b-instruct-q4_K_M",
+            backend=InferenceBackend.OLLAMA_LOCAL,
+        ),
+
+        # === 中間層（14B） ===
+        "teitoku": _rc(
+            name_ja="提督", name_en="Admiral",
+            branch=Branch.KAIGUN,
+            model="qwen2.5:14b-instruct-q4_K_M",
+            backend=InferenceBackend.OLLAMA_LOCAL,
+        ),
+        "shikan": _rc(
+            name_ja="士官", name_en="Officer",
+            branch=Branch.RIKUGUN,
+            model="qwen2.5:14b-instruct-q4_K_M",
+            backend=InferenceBackend.OLLAMA_LOCAL,
+        ),
+
+        # === 書記（7B・高速） ===
+        "shoki": _rc(
+            name_ja="書記", name_en="Clerk",
+            branch=Branch.KAIGUN,
+            model="qwen2.5:7b-instruct-q8_0",
+            backend=InferenceBackend.OLLAMA_LOCAL,
+        ),
+
+        # === 実行層（7B・並列） ===
+        "kancho": _rc(
+            name_ja="艦長", name_en="Captain",
+            branch=Branch.KAIGUN,
+            model="qwen2.5:7b-instruct-q8_0",
+            backend=InferenceBackend.OLLAMA_LOCAL,
+        ),
+        "kaihei": _rc(
+            name_ja="海兵", name_en="Marine",
+            branch=Branch.KAIGUN,
+            model="qwen2.5:7b-instruct-q8_0",
+            backend=InferenceBackend.OLLAMA_LOCAL,
+            parallel=2,
+        ),
+        "hohei": _rc(
+            name_ja="歩兵", name_en="Infantry",
+            branch=Branch.RIKUGUN,
+            model="qwen2.5:7b-instruct-q8_0",
+            backend=InferenceBackend.OLLAMA_LOCAL,
+            parallel=2,
+        ),
+    },
 }
+
+
+# ============================================================
+# 後方互換: デフォルトセキュリティレベル
+# ============================================================
+
+DEFAULT_SECURITY_LEVEL: SecurityLevel = SecurityLevel.PUBLIC
+
+# 既存コード互換: RANK_CONFIG (singular) → PUBLIC設定
+RANK_CONFIG: dict[str, RankConfig] = {
+    **RANK_CONFIGS[DEFAULT_SECURITY_LEVEL],
+}
+
+# 階級名エイリアス（将来の名称変更対応用）
+_RANK_ALIASES: dict[str, str] = {}
 
 
 # ============================================================
@@ -169,32 +301,54 @@ DEFAULT_COST_ESTIMATE = CostEstimate()
 # ユーティリティ関数
 # ============================================================
 
-def get_rank_config(rank: str) -> RankConfig:
-    """階級設定を取得"""
-    if rank not in RANK_CONFIG:
-        raise ValueError(f"Unknown rank: {rank}. Valid ranks: {list(RANK_CONFIG.keys())}")
-    return RANK_CONFIG[rank]
+def _resolve_rank(rank: str) -> str:
+    """階級名のエイリアスを解決する"""
+    return _RANK_ALIASES.get(rank, rank)
 
 
-def get_model_for_rank(rank: str) -> str:
+def get_rank_config(
+    rank: str,
+    security_level: Optional[SecurityLevel] = None,
+) -> RankConfig:
+    """セキュリティレベルに応じた階級設定を取得"""
+    level = security_level or DEFAULT_SECURITY_LEVEL
+    rank = _resolve_rank(rank)
+
+    configs = RANK_CONFIGS[level]
+    if rank not in configs:
+        raise ValueError(
+            f"Unknown rank: {rank}. "
+            f"Valid ranks for {level.value}: {list(configs.keys())}"
+        )
+    return configs[rank]
+
+
+def get_model_for_rank(
+    rank: str,
+    security_level: Optional[SecurityLevel] = None,
+) -> str:
     """階級に対応するモデル名を取得"""
-    return get_rank_config(rank).model
+    return get_rank_config(rank, security_level).model
 
 
-def get_parallel_count(rank: str) -> int:
+def get_parallel_count(
+    rank: str,
+    security_level: Optional[SecurityLevel] = None,
+) -> int:
     """階級の並列数を取得"""
-    return get_rank_config(rank).parallel
+    return get_rank_config(rank, security_level).parallel
 
 
-def estimate_cost(input_tokens: int, output_tokens: int, rank: str) -> float:
+def estimate_cost(
+    input_tokens: int,
+    output_tokens: int,
+    rank: str,
+    security_level: Optional[SecurityLevel] = None,
+) -> float:
     """API呼び出しのコスト見積もり（USD）"""
-    config = get_rank_config(rank)
+    config = get_rank_config(rank, security_level)
 
-    if config.billing == BillingType.SUBSCRIPTION:
-        return 0.0
-    if config.billing == BillingType.GCP_FREE:
-        return 0.0
-    if config.billing == BillingType.LOCAL:
+    if config.billing in (BillingType.SUBSCRIPTION, BillingType.GCP_FREE, BillingType.LOCAL):
         return 0.0
 
     input_cost = (input_tokens / 1_000_000) * config.cost_per_mtok_input
@@ -202,26 +356,52 @@ def estimate_cost(input_tokens: int, output_tokens: int, rank: str) -> float:
     return input_cost + output_cost
 
 
-def get_ranks_by_branch(branch: Branch) -> list[str]:
+def get_ranks_by_branch(
+    branch: Branch,
+    security_level: Optional[SecurityLevel] = None,
+) -> list[str]:
     """軍種別の階級一覧を取得"""
-    return [rank for rank, cfg in RANK_CONFIG.items() if cfg.branch == branch]
+    level = security_level or DEFAULT_SECURITY_LEVEL
+    configs = RANK_CONFIGS[level]
+    return [rank for rank, cfg in configs.items() if cfg.branch == branch]
 
 
-def print_rank_table() -> None:
+def get_all_ranks(
+    security_level: Optional[SecurityLevel] = None,
+) -> list[str]:
+    """全階級名を取得"""
+    level = security_level or DEFAULT_SECURITY_LEVEL
+    return list(RANK_CONFIGS[level].keys())
+
+
+def print_rank_table(security_level: Optional[SecurityLevel] = None) -> None:
     """階級表を表示（デバッグ用）"""
-    print("\n" + "=" * 80)
-    print("階級体系 × モデル × 課金方式")
-    print("=" * 80)
-    print(f"{'階級':<12} {'モデル':<35} {'課金':<12} {'並列':<6}")
-    print("-" * 80)
+    level = security_level or DEFAULT_SECURITY_LEVEL
+    configs = RANK_CONFIGS[level]
 
-    for rank, config in RANK_CONFIG.items():
-        print(f"{config.name_ja:<10} {config.model:<35} {config.billing.value:<12} ×{config.parallel}")
+    print(f"\n{'=' * 90}")
+    print(f"階級体系 × モデル × 課金方式  [SecurityLevel: {level.value}]")
+    print("=" * 90)
+    print(f"{'階級':<12} {'モデル':<40} {'バックエンド':<16} {'並列':<6}")
+    print("-" * 90)
 
-    print("-" * 80)
-    print(f"月額見込み: ${DEFAULT_COST_ESTIMATE.total:.0f} (¥{DEFAULT_COST_ESTIMATE.total_jpy:,.0f})")
-    print("=" * 80)
+    for rank, config in configs.items():
+        print(
+            f"{config.name_ja:<10} "
+            f"{config.model:<40} "
+            f"{config.backend.value:<16} "
+            f"x{config.parallel}"
+        )
+
+    print("-" * 90)
+    if level == SecurityLevel.PUBLIC:
+        print(f"月額見込み: ${DEFAULT_COST_ESTIMATE.total:.0f} (¥{DEFAULT_COST_ESTIMATE.total_jpy:,.0f})")
+    else:
+        print("月額見込み: $0 (ローカル推論)")
+    print("=" * 90)
 
 
 if __name__ == "__main__":
-    print_rank_table()
+    print_rank_table(SecurityLevel.PUBLIC)
+    print()
+    print_rank_table(SecurityLevel.CONFIDENTIAL)

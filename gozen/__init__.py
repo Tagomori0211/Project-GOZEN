@@ -15,6 +15,10 @@ from gozen.gozen_orchestrator import GozenOrchestrator
 
 from gozen.config import (
     RANK_CONFIG,
+    RANK_CONFIGS,
+    DEFAULT_SECURITY_LEVEL,
+    InferenceBackend,
+    SecurityLevel,
     estimate_cost,
     get_model_for_rank,
     get_rank_config,
@@ -27,9 +31,13 @@ from gozen.character import (
 )
 
 from gozen.council_mode import (
+    ArbitrationResult,
     CouncilManager,
     CouncilMode,
+    PCAState,
+    resolve_deadlock,
     run_council,
+    run_pca_council,
 )
 
 from gozen.api_client import (
@@ -54,6 +62,10 @@ __all__ = [
     "GozenOrchestrator",
     # config
     "RANK_CONFIG",
+    "RANK_CONFIGS",
+    "DEFAULT_SECURITY_LEVEL",
+    "SecurityLevel",
+    "InferenceBackend",
     "get_rank_config",
     "get_model_for_rank",
     "estimate_cost",
@@ -62,9 +74,13 @@ __all__ = [
     "format_message",
     "ZeroTrustDialogue",
     # council_mode
+    "ArbitrationResult",
     "CouncilMode",
     "CouncilManager",
+    "PCAState",
     "run_council",
+    "run_pca_council",
+    "resolve_deadlock",
     # api_client
     "get_client",
     "get_cost_tracker",
