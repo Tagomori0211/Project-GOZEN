@@ -32,3 +32,4 @@ queue/*.yaml
 status/dashboard.md
 *.log
 .DS_Store
+memo.txt
