@@ -20,6 +20,7 @@ class BillingType(Enum):
     SUBSCRIPTION = "subscription"  # サブスク（Pro/Max）
     API = "api"                    # API従量課金
     GCP_FREE = "gcp_free"          # GCP無料枠
+    LOCAL = "local"                # ローカルLLM（コスト0）
 
 
 class InvocationMethod(Enum):
@@ -27,6 +28,7 @@ class InvocationMethod(Enum):
     CLAUDE_CODE_CLI = "claude_code_cli"
     ANTHROPIC_API = "anthropic_api"
     GEMINI_API = "gemini_api"
+    LOCAL_LLM = "local_llm"
 
 
 @dataclass(frozen=True)
@@ -48,85 +50,71 @@ class RankConfig:
 # ============================================================
 
 RANK_CONFIG: dict[str, RankConfig] = {
-    # === 海軍系統（Claude） ===
+    # === 海軍系統（Qwen2.5 via Ollama） ===
     "kaigun_sanbou": RankConfig(
         name_ja="海軍参謀",
         name_en="Naval Staff",
         branch=Branch.KAIGUN,
-        model="claude-opus-4-5-20251101",
-        billing=BillingType.SUBSCRIPTION,
-        method=InvocationMethod.CLAUDE_CODE_CLI,
+        model="qwen2.5:72b-instruct-q4_K_M",
+        billing=BillingType.LOCAL,
+        method=InvocationMethod.LOCAL_LLM,
         parallel=1,
-        cost_per_mtok_input=0.0,
-        cost_per_mtok_output=0.0,
     ),
     "teitoku": RankConfig(
         name_ja="提督",
         name_en="Admiral",
         branch=Branch.KAIGUN,
-        model="claude-sonnet-4-5-20250929",
-        billing=BillingType.SUBSCRIPTION,
-        method=InvocationMethod.CLAUDE_CODE_CLI,
+        model="qwen2.5:32b-instruct-q4_K_M",
+        billing=BillingType.LOCAL,
+        method=InvocationMethod.LOCAL_LLM,
         parallel=1,
-        cost_per_mtok_input=0.0,
-        cost_per_mtok_output=0.0,
     ),
     "kancho": RankConfig(
         name_ja="艦長",
         name_en="Captain",
         branch=Branch.KAIGUN,
-        model="claude-sonnet-4-5-20250929",
-        billing=BillingType.SUBSCRIPTION,
-        method=InvocationMethod.CLAUDE_CODE_CLI,
+        model="qwen2.5:14b-instruct",
+        billing=BillingType.LOCAL,
+        method=InvocationMethod.LOCAL_LLM,
         parallel=1,
-        cost_per_mtok_input=0.0,
-        cost_per_mtok_output=0.0,
     ),
     "kaihei": RankConfig(
         name_ja="海兵",
         name_en="Marine",
         branch=Branch.KAIGUN,
-        model="claude-haiku-4-5-20251001",
-        billing=BillingType.SUBSCRIPTION,
-        method=InvocationMethod.CLAUDE_CODE_CLI,
-        parallel=8,
-        cost_per_mtok_input=0.0,
-        cost_per_mtok_output=0.0,
+        model="qwen2.5:7b-instruct",
+        billing=BillingType.LOCAL,
+        method=InvocationMethod.LOCAL_LLM,
+        parallel=4,
     ),
 
-    # === 陸軍系統（Gemini） ===
+    # === 陸軍系統（Qwen2.5 via Ollama） ===
     "rikugun_sanbou": RankConfig(
         name_ja="陸軍参謀",
         name_en="Army Staff",
         branch=Branch.RIKUGUN,
-        model="gemini-2.5-pro",
-        billing=BillingType.GCP_FREE,
-        method=InvocationMethod.GEMINI_API,
+        model="qwen2.5:72b-instruct-q4_K_M",
+        billing=BillingType.LOCAL,
+        method=InvocationMethod.LOCAL_LLM,
         parallel=1,
-        cost_per_mtok_input=0.0,
-        cost_per_mtok_output=0.0,
     ),
     "shikan": RankConfig(
         name_ja="士官",
         name_en="Officer",
         branch=Branch.RIKUGUN,
-        model="gemini-2.5-flash",
-        billing=BillingType.API,
-        method=InvocationMethod.GEMINI_API,
+        model="qwen2.5:14b-instruct",
+        billing=BillingType.LOCAL,
+        method=InvocationMethod.LOCAL_LLM,
         parallel=1,
-        cost_per_mtok_input=0.15,
-        cost_per_mtok_output=0.60,
     ),
     "hohei": RankConfig(
         name_ja="歩兵",
         name_en="Infantry",
         branch=Branch.RIKUGUN,
-        model="gemini-2.5-flash",
-        billing=BillingType.API,
-        method=InvocationMethod.GEMINI_API,
+        model="qwen2.5:7b-instruct",
+        billing=BillingType.LOCAL,
+        method=InvocationMethod.LOCAL_LLM,
         parallel=4,
-        cost_per_mtok_input=0.15,
-        cost_per_mtok_output=0.60,
     ),
 }
 
@@ -205,6 +193,8 @@ def estimate_cost(input_tokens: int, output_tokens: int, rank: str) -> float:
     if config.billing == BillingType.SUBSCRIPTION:
         return 0.0
     if config.billing == BillingType.GCP_FREE:
+        return 0.0
+    if config.billing == BillingType.LOCAL:
         return 0.0
 
     input_cost = (input_tokens / 1_000_000) * config.cost_per_mtok_input

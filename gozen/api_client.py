@@ -519,6 +519,85 @@ class ClaudeCodeClient(BaseAPIClient):
 
 
 # ============================================================
+# Ollama (ローカルLLM) クライアント
+# ============================================================
+
+class OllamaClient(BaseAPIClient):
+    """Ollama ローカルLLM クライアント（全階級共通）"""
+
+    def __init__(self, rank: str, retry_config: Optional[RetryConfig] = None) -> None:
+        super().__init__(rank, retry_config)
+        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.num_threads = int(os.getenv("OLLAMA_NUM_THREADS", "16"))
+        self._session: Any = None
+
+    async def _get_session(self) -> Any:
+        if self._session is None:
+            try:
+                import aiohttp
+                self._session = aiohttp.ClientSession()
+            except ImportError:
+                raise APIError("aiohttp パッケージがインストールされていません: pip install aiohttp")
+        return self._session
+
+    async def _call_api(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
+        session = await self._get_session()
+        url = f"{self.base_url}/api/generate"
+
+        payload: dict[str, Any] = {
+            "model": self.config.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "num_thread": self.num_threads,
+            },
+        }
+
+        system_prompt = kwargs.get("system", "")
+        if system_prompt:
+            payload["system"] = system_prompt
+
+        try:
+            import aiohttp
+            async with session.post(url, json=payload) as resp:
+                if resp.status == 404:
+                    raise APIError(
+                        f"Ollama モデル未取得: {self.config.model}\n"
+                        f"ヒント: ollama pull {self.config.model} を実行してください。"
+                    )
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise APIError(f"Ollama エラー (HTTP {resp.status}): {body}")
+
+                data = await resp.json()
+
+        except aiohttp.ClientConnectorError as e:
+            raise APIError(
+                f"Ollama に接続できません ({self.base_url}): {e}\n"
+                "ヒント: ollama serve が起動しているか確認してください。"
+            )
+
+        content = data.get("response", "")
+        eval_count = data.get("eval_count", 0)
+        prompt_eval_count = data.get("prompt_eval_count", 0)
+
+        return {
+            "content": content,
+            "usage": {
+                "input_tokens": prompt_eval_count,
+                "output_tokens": eval_count,
+            },
+            "model": data.get("model", self.config.model),
+        }
+
+    async def close(self) -> None:
+        """セッションを閉じる"""
+        if self._session is not None:
+            await self._session.close()
+            self._session = None
+
+
+# ============================================================
 # クライアントファクトリ
 # ============================================================
 
@@ -530,6 +609,7 @@ def get_client(rank: str, retry_config: Optional[RetryConfig] = None) -> BaseAPI
         InvocationMethod.CLAUDE_CODE_CLI: ClaudeCodeClient,
         InvocationMethod.ANTHROPIC_API: AnthropicClient,
         InvocationMethod.GEMINI_API: GeminiClient,
+        InvocationMethod.LOCAL_LLM: OllamaClient,
     }
 
     client_cls = client_map.get(config.method)

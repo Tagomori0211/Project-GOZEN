@@ -12,6 +12,7 @@ setup(
         "anthropic>=0.18.0",
         "google-generativeai>=0.8.0",
         "google-cloud-aiplatform>=1.38.0",
+        "aiohttp>=3.9.0",
     ],
     entry_points={
         'console_scripts': [
