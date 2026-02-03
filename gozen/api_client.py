@@ -530,6 +530,7 @@ class OllamaClient(BaseAPIClient):
         self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.num_threads = int(os.getenv("OLLAMA_NUM_THREADS", "16"))
         self._session: Any = None
+        self._owns_session: bool = False  # セッション所有権フラグ
 
     async def __aenter__(self) -> "OllamaClient":
         return self
@@ -542,6 +543,7 @@ class OllamaClient(BaseAPIClient):
             try:
                 import aiohttp
                 self._session = aiohttp.ClientSession()
+                self._owns_session = True  # 自分で作成したセッション
             except ImportError:
                 raise APIError("aiohttp パッケージがインストールされていません: pip install aiohttp")
         return self._session
@@ -604,9 +606,17 @@ class OllamaClient(BaseAPIClient):
 
     async def close(self) -> None:
         """セッションを閉じる"""
-        if self._session is not None:
+        if self._session is not None and self._owns_session:
             await self._session.close()
             self._session = None
+            self._owns_session = False
+
+    async def call(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
+        """リトライ付きAPI呼び出し（セッション自動クローズ）"""
+        try:
+            return await super().call(prompt, **kwargs)
+        finally:
+            await self.close()
 
 
 # ============================================================

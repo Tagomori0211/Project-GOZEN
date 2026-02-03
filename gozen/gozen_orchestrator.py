@@ -139,7 +139,7 @@ class GozenOrchestrator:
         print("\n選択肢:")
         print("  [1] 海軍案を採択")
         print("  [2] 陸軍案を採択")
-        print("  [3] 統合案を作成")
+        print("  [3] 統合案を作成（書記が起草）")
         print("  [4] 却下")
 
         try:
@@ -147,10 +147,15 @@ class GozenOrchestrator:
         except EOFError:
             choice = "4"
 
+        # 統合案は非同期で書記が作成
+        integrated_content: Any | None = None
+        if choice == "3":
+            integrated_content = await self._integrate(proposal, objection)
+
         decision_map: dict[str, dict[str, Any]] = {
             "1": {"approved": True, "adopted": "kaigun", "content": proposal},
             "2": {"approved": True, "adopted": "rikugun", "content": objection},
-            "3": {"approved": True, "adopted": "integrated", "content": self._integrate(proposal, objection)},
+            "3": {"approved": True, "adopted": "integrated", "content": integrated_content},
             "4": {"approved": False, "adopted": None, "content": None},
         }
 
@@ -160,14 +165,39 @@ class GozenOrchestrator:
 
         return decision
 
-    def _integrate(self, proposal: dict[str, Any], objection: dict[str, Any]) -> dict[str, Any]:
-        """海軍案と陸軍案の統合"""
-        return {
-            "title": "統合案",
-            "kaigun_elements": proposal.get("key_points", []),
-            "rikugun_elements": objection.get("key_points", []),
-            "summary": "海軍の理想と陸軍の現実を統合した折衷案",
-        }
+    async def _integrate(self, proposal: dict[str, Any], objection: dict[str, Any]) -> dict[str, Any]:
+        """海軍案と陸軍案の統合（書記による折衷案作成）"""
+        try:
+            from gozen.shoki import Shoki, ShokiConfig
+            from gozen.config import get_rank_config
+
+            config = get_rank_config("shoki")
+            shoki = Shoki(ShokiConfig(
+                model=config.model,
+                backend=config.backend.value,
+            ))
+
+            print("📜 [書記] 折衷案を起草中...")
+
+            # 書記に折衷案作成を依頼
+            merged = await shoki.synthesize(
+                proposal,
+                objection,
+                merge_instruction="海軍の理想と陸軍の現実を統合した折衷案を作成せよ"
+            )
+
+            print("📜 [書記] 折衷案起草完了")
+            return merged
+
+        except Exception as e:
+            print(f"⚠️ [書記] 統合失敗、簡易マージにフォールバック: {e}")
+            # フォールバック: 従来の簡易マージ
+            return {
+                "title": "統合案（簡易マージ）",
+                "kaigun_elements": proposal.get("key_points", []),
+                "rikugun_elements": objection.get("key_points", []),
+                "summary": "海軍の理想と陸軍の現実を統合した折衷案",
+            }
 
     async def _execute_orders(self, decision: dict[str, Any], task: dict[str, Any]) -> dict[str, Any]:
         """実行部隊への指令"""
