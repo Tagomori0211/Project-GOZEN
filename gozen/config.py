@@ -126,7 +126,7 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
         "rikugun_sanbou": _rc(
             name_ja="陸軍参謀", name_en="Army Staff",
             branch=Branch.RIKUGUN,
-            model="gemini-1.5-pro",
+            model="gemini-2.5-pro",
             backend=InferenceBackend.GEMINI_API,
         ),
 

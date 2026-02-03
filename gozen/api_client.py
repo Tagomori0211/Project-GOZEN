@@ -531,6 +531,12 @@ class OllamaClient(BaseAPIClient):
         self.num_threads = int(os.getenv("OLLAMA_NUM_THREADS", "16"))
         self._session: Any = None
 
+    async def __aenter__(self) -> "OllamaClient":
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        await self.close()
+
     async def _get_session(self) -> Any:
         if self._session is None:
             try:
@@ -539,6 +545,11 @@ class OllamaClient(BaseAPIClient):
             except ImportError:
                 raise APIError("aiohttp パッケージがインストールされていません: pip install aiohttp")
         return self._session
+
+    @staticmethod
+    def _sanitize_llm_output(text: str) -> str:
+        """LLM出力のサロゲート等不正Unicodeを除去する"""
+        return text.encode("utf-8", errors="replace").decode("utf-8")
 
     async def _call_api(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
         session = await self._get_session()
@@ -577,7 +588,8 @@ class OllamaClient(BaseAPIClient):
                 "ヒント: ollama serve が起動しているか確認してください。"
             )
 
-        content = data.get("response", "")
+        # LLM出力はサロゲート等の不正Unicodeを含みうるため即座にサニタイズ
+        content = self._sanitize_llm_output(data.get("response", ""))
         eval_count = data.get("eval_count", 0)
         prompt_eval_count = data.get("prompt_eval_count", 0)
 
@@ -646,18 +658,22 @@ async def execute_parallel(
 
     print(f"🚀 {rank} ×{len(prompts)} 並列実行（最大同時: {concurrency}）")
 
-    tasks = [call_with_semaphore(prompt, i) for i, prompt in enumerate(prompts)]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    try:
+        tasks = [call_with_semaphore(prompt, i) for i, prompt in enumerate(prompts)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    final_results: list[dict[str, Any]] = []
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            print(f"  ❌ [{rank}#{i + 1}] エラー: {result}")
-            final_results.append({"index": i, "error": str(result)})
-        else:
-            final_results.append(result)
+        final_results: list[dict[str, Any]] = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                print(f"  ❌ [{rank}#{i + 1}] エラー: {result}")
+                final_results.append({"index": i, "error": str(result)})
+            else:
+                final_results.append(result)
 
-    return final_results
+        return final_results
+    finally:
+        if hasattr(client, "close"):
+            await client.close()
 
 
 # ============================================================

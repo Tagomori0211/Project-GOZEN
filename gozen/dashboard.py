@@ -3,6 +3,13 @@
 
 各モジュールの実行状態を status/dashboard.md に書き出す。
 人間（国家元首）が cat / watch で戦況を把握できるようにする。
+
+設計原則:
+  - dashboard.md は補助UI / 可視化成果物
+  - 生成失敗 ≠ システム失敗
+  - 意思決定ロジック・裁定フローを絶対に巻き込まない
+  - LLM出力にはサロゲート等の不正Unicodeが混入しうるため、
+    永続化前に必ずサニタイズを通す
 """
 
 from __future__ import annotations
@@ -245,13 +252,23 @@ class DashboardWriter:
     def _icon(self, status: str) -> str:
         return _STATUS_ICONS.get(status, "\u2b1c")
 
+    @staticmethod
+    def _sanitize_text(text: str) -> str:
+        """UTF-8 でエンコード不可な文字（サロゲート等）を除去する。
+
+        ローカルLLM（Qwen/Ollama）の出力に不正 Unicode が混入する場合の
+        安全弁として、永続化直前に必ず通す。
+        """
+        return text.encode("utf-8", errors="replace").decode("utf-8")
+
     async def _write_dashboard(self) -> None:
+        """dashboard.md を書き出す（best-effort: 失敗しても会議進行に影響しない）"""
         try:
             self._output_path.parent.mkdir(parents=True, exist_ok=True)
-            content = self._render()
+            content = self._sanitize_text(self._render())
             self._output_path.write_text(content, encoding="utf-8")
-        except Exception:
-            logger.warning("dashboard.md の書き込みに失敗", exc_info=True)
+        except Exception as e:
+            logger.warning("dashboard.md write skipped: %s", e)
 
     # =================================================================
     # Render
