@@ -7,6 +7,44 @@ Project GOZEN - 御前会議
 「陸軍として海軍の提案に反対である」
 """
 
+# ============================================================
+# .env ファイル自動読み込み（最初に実行）
+# ============================================================
+import os
+from pathlib import Path
+
+def _load_dotenv() -> None:
+    """プロジェクトルートの .env ファイルを読み込む"""
+    try:
+        from dotenv import load_dotenv
+
+        # このファイル（__init__.py）の親の親 = プロジェクトルート
+        project_root = Path(__file__).parent.parent
+        env_path = project_root / ".env"
+
+        if env_path.exists():
+            load_dotenv(env_path)
+            # デバッグ用（本番では削除可）
+            if os.getenv("GOZEN_DEBUG"):
+                print(f"[GOZEN] .env loaded from: {env_path}")
+        else:
+            # .env が見つからない場合、カレントディレクトリも探す
+            cwd_env = Path.cwd() / ".env"
+            if cwd_env.exists():
+                load_dotenv(cwd_env)
+                if os.getenv("GOZEN_DEBUG"):
+                    print(f"[GOZEN] .env loaded from: {cwd_env}")
+
+    except ImportError:
+        # python-dotenv がインストールされていない場合
+        # 環境変数が直接設定されていることを期待
+        pass
+
+# モジュール読み込み時に自動実行
+_load_dotenv()
+
+# ============================================================
+
 __version__ = "2.1.0"
 __author__ = "tagomori (田籠)"
 __project__ = "Project GOZEN"
