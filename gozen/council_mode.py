@@ -250,10 +250,21 @@ class CouncilManager:
                         )
                         context = {"merged_proposal": merged, **task}
                     else:
+                        merged = self._simple_merge(proposal, objection)
                         context = {
-                            "merged_proposal": self._simple_merge(proposal, objection),
+                            "merged_proposal": merged,
                             **task,
                         }
+
+                    # ダッシュボードに折衷案を書き込む
+                    try:
+                        from gozen.dashboard import get_dashboard
+                        dashboard = get_dashboard()
+                        merged_text = self._format_proposal(context.get("merged_proposal", {}))
+                        await dashboard.merged_proposal_update(merged_text)
+                    except Exception:
+                        pass  # dashboard 書き込み失敗は処理を継続
+
                     self.state.phase = "PROPOSE"
                     self.state.iteration += 1
 
@@ -505,6 +516,45 @@ class CouncilManager:
       split         : タスク分割
       abort         : 本タスク中止
         """)
+
+    def _format_proposal(self, proposal: dict[str, Any]) -> str:
+        """提案オブジェクトをマークダウン形式でフォーマット"""
+        lines = []
+
+        # タイトル
+        if "title" in proposal:
+            lines.append(f"### {proposal['title']}")
+            lines.append("")
+
+        # サマリー
+        if "summary" in proposal:
+            lines.append(proposal["summary"])
+            lines.append("")
+
+        # 主要ポイント
+        if "key_points" in proposal and proposal["key_points"]:
+            lines.append("#### 主要ポイント")
+            for point in proposal["key_points"]:
+                lines.append(f"- {point}")
+            lines.append("")
+
+        # 詳細な根拠
+        if "reasoning" in proposal:
+            lines.append("#### 根拠")
+            lines.append(proposal["reasoning"])
+            lines.append("")
+
+        # その他のフィールド
+        for key, value in proposal.items():
+            if key not in ("title", "summary", "key_points", "reasoning"):
+                if isinstance(value, str):
+                    lines.append(f"**{key}**: {value}")
+                elif isinstance(value, list):
+                    lines.append(f"**{key}**: {', '.join(map(str, value))}")
+                else:
+                    lines.append(f"**{key}**: {value}")
+
+        return "\n".join(lines) if lines else str(proposal)
 
     def _generate_simple_escalation_report(self) -> str:
         """書記なしの簡易エスカレーションレポート"""

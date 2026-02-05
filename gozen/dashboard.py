@@ -61,6 +61,7 @@ class DashboardWriter:
         self._proposal_summary: str = ""
         self._objection_status: str = "waiting"
         self._objection_summary: str = ""
+        self._merged_proposal: str = ""
 
         self._decision_choice: str = ""
         self._decision_adopted: str = ""
@@ -104,6 +105,7 @@ class DashboardWriter:
         self._proposal_summary = ""
         self._objection_status = "waiting"
         self._objection_summary = ""
+        self._merged_proposal = ""
         self._decision_choice = ""
         self._decision_adopted = ""
 
@@ -135,7 +137,8 @@ class DashboardWriter:
         async with self._lock:
             self._proposal_status = status
             if summary:
-                self._proposal_summary = summary[:80]
+                # 参謀レベルは提案全文を保存
+                self._proposal_summary = summary
             self._add_log(f"海軍提案: {status}")
             await self._write_dashboard()
 
@@ -147,7 +150,8 @@ class DashboardWriter:
         async with self._lock:
             self._objection_status = status
             if summary:
-                self._objection_summary = summary[:80]
+                # 参謀レベルは異議全文を保存
+                self._objection_summary = summary
             self._add_log(f"陸軍異議: {status}")
             await self._write_dashboard()
 
@@ -158,6 +162,15 @@ class DashboardWriter:
             self._decision_choice = choice
             self._decision_adopted = adopted
             self._add_log(f"裁定: {choice} (採択: {adopted})")
+            await self._write_dashboard()
+
+    async def merged_proposal_update(self, content: str) -> None:
+        """書記による折衷案をダッシュボードに書き込む"""
+        if not self._initialized:
+            return
+        async with self._lock:
+            self._merged_proposal = content
+            self._add_log("折衷案: 完了")
             await self._write_dashboard()
 
     async def unit_update(
@@ -324,6 +337,13 @@ class DashboardWriter:
             f" | {self._objection_summary} |"
         )
         lines.append("")
+
+        # --- 折衷案 ---
+        if self._merged_proposal:
+            lines.append("## 折衷案（書記統合）")
+            lines.append("")
+            lines.append(self._merged_proposal)
+            lines.append("")
 
         # --- 海軍ツリー ---
         lines.append("## 海軍 (Naval Branch)")

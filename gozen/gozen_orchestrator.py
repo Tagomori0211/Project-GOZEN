@@ -58,7 +58,9 @@ class GozenOrchestrator:
         proposal = await kaigun_create_proposal(task)
         self._save_to_queue("proposal", task_id, proposal)
         print(f"   提案完了: {proposal.get('title', 'N/A')}")
-        await dashboard.proposal_update("completed", proposal.get("summary", ""))
+        # 参謀レベルは提案全文を dashboard に記録
+        proposal_text = self._format_proposal(proposal)
+        await dashboard.proposal_update("completed", proposal_text)
         await dashboard.phase_update("proposal", "completed")
 
         # --- 陸軍異議 ---
@@ -67,7 +69,9 @@ class GozenOrchestrator:
         objection = await rikugun_create_objection(task, proposal)
         self._save_to_queue("objection", task_id, objection)
         print(f"   異議完了: {objection.get('title', 'N/A')}")
-        await dashboard.objection_update("completed", objection.get("summary", ""))
+        # 参謀レベルは異議全文を dashboard に記録
+        objection_text = self._format_proposal(objection)
+        await dashboard.objection_update("completed", objection_text)
         await dashboard.phase_update("objection", "completed")
 
         # --- 裁定 ---
@@ -187,6 +191,12 @@ class GozenOrchestrator:
             )
 
             print("📜 [書記] 折衷案起草完了")
+
+            # ダッシュボードに折衷案を書き込む
+            dashboard = get_dashboard()
+            merged_text = self._format_proposal(merged)
+            await dashboard.merged_proposal_update(merged_text)
+
             return merged
 
         except Exception as e:
@@ -224,6 +234,45 @@ class GozenOrchestrator:
                 "kaigun_result": kaigun_result,
                 "rikugun_result": rikugun_result,
             }
+
+    def _format_proposal(self, proposal: dict[str, Any]) -> str:
+        """提案オブジェクトをマークダウン形式でフォーマット"""
+        lines = []
+
+        # タイトル
+        if "title" in proposal:
+            lines.append(f"### {proposal['title']}")
+            lines.append("")
+
+        # サマリー
+        if "summary" in proposal:
+            lines.append(proposal["summary"])
+            lines.append("")
+
+        # 主要ポイント
+        if "key_points" in proposal and proposal["key_points"]:
+            lines.append("#### 主要ポイント")
+            for point in proposal["key_points"]:
+                lines.append(f"- {point}")
+            lines.append("")
+
+        # 詳細な根拠
+        if "reasoning" in proposal:
+            lines.append("#### 根拠")
+            lines.append(proposal["reasoning"])
+            lines.append("")
+
+        # その他のフィールド
+        for key, value in proposal.items():
+            if key not in ("title", "summary", "key_points", "reasoning"):
+                if isinstance(value, str):
+                    lines.append(f"**{key}**: {value}")
+                elif isinstance(value, list):
+                    lines.append(f"**{key}**: {', '.join(map(str, value))}")
+                else:
+                    lines.append(f"**{key}**: {value}")
+
+        return "\n".join(lines) if lines else str(proposal)
 
     def _save_to_queue(self, queue_type: str, task_id: str, content: dict[str, Any]) -> None:
         """キューにYAMLで保存"""
