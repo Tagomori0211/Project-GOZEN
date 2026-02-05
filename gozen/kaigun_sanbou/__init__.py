@@ -104,26 +104,22 @@ class KaigunSanbou:
     async def _call_api(self, mission: str, requirements: list[str]) -> dict[str, Any]:
         """APIを呼び出して提案を生成"""
         from gozen.api_client import get_client
+        from pathlib import Path
 
         client = get_client("kaigun_sanbou")
 
-        char = self._character
+        # ペルソナプロンプトを読み込む
+        prompt_file = Path(__file__).parent.parent.parent / "prompts" / "kaigun_sanbou.prompt"
+        if prompt_file.exists():
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                system_prompt = f.read()
+        else:
+            system_prompt = ""
+
         req_str = "\n".join(f"- {r}" for r in requirements) if requirements else "- 未指定"
 
-        system_prompt = (
-            f"あなたは「{char.name}」です。\n"
-            f"{char.intro}\n\n"
-            f"哲学: {char.philosophy}\n\n"
-            "口調: です・ます調（薩摩・海軍兵学校風）\n"
-            "- 「〜を提案いたします」「〜と判断いたします」\n"
-            "- 「検証なき信頼は敗北への道」\n\n"
-            "あなたの役割は、海軍参謀として理想・論理・スケーラビリティを重視した"
-            "技術提案を作成することです。\n"
-            "3年先を見据えたアーキテクチャ設計を行い、"
-            "「美しく壮大な設計図」を描いてください。"
-        )
-
         user_prompt = (
+            f"{system_prompt}\n\n"
             "以下の任務に対する技術提案を作成してください。\n\n"
             f"## 任務\n{mission}\n\n"
             f"## 要件\n{req_str}\n\n"
@@ -153,7 +149,7 @@ class KaigunSanbou:
             "```"
         )
 
-        result = await client.call(user_prompt, system=system_prompt)
+        result = await client.call(user_prompt)
         content = result.get("content", "")
 
         # JSONパース試行

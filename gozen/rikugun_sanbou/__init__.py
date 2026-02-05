@@ -120,18 +120,18 @@ class RikugunSanbou:
         ) if proposal_key_points else "- 不明"
 
         # Gemini は system パラメータ未対応のため、プロンプトに統合
+        # ペルソナプロンプトを読み込む
+        from pathlib import Path
+        prompt_file = Path(__file__).parent.parent.parent / "prompts" / "rikugun_sanbou.prompt"
+        if prompt_file.exists():
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                persona_prompt = f.read()
+        else:
+            persona_prompt = ""
+
+        # ペルソナプロンプト + 議題を組み合わせる
         prompt = (
-            f"# あなたの役割\n"
-            f"あなたは「{char.name}」です。\n"
-            f"{char.intro}\n\n"
-            f"哲学: {char.philosophy}\n\n"
-            "口調: であります調（長州・陸軍士官学校風）\n"
-            "- 「〜であります」「〜と判断するであります」\n"
-            "- 「陸軍として海軍の提案に反対であります」\n"
-            "- 「信用するな、検証せよ」\n\n"
-            "あなたの役割は、陸軍参謀として現実・運用・コストを重視し、"
-            "海軍参謀の提案に対して異議を申し立てることです。\n"
-            "過剰設計を指摘し、現実的な代替案を提示してください。\n\n"
+            f"{persona_prompt}\n\n"
             "# 任務情報\n\n"
             f"## 任務\n{mission}\n\n"
             f"## 要件\n{req_str}\n\n"
