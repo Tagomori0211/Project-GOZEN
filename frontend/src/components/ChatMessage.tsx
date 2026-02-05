@@ -54,6 +54,7 @@ function ChatMessage({ message }: ChatMessageProps) {
     proposal: '提案',
     objection: '異議',
     merged: '統合案',
+    validation: '妥当性検証',
     decision: '裁定',
     info: '情報',
     error: 'エラー',

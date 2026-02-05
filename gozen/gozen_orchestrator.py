@@ -140,34 +140,183 @@ class GozenOrchestrator:
         objection: dict[str, Any],
     ) -> dict[str, Any]:
         """国家元首の裁定を待つ"""
-        print("\n選択肢:")
-        print("  [1] 海軍案を採択")
-        print("  [2] 陸軍案を採択")
-        print("  [3] 統合案を作成（書記が起草）")
-        print("  [4] 却下")
+        current_proposal = proposal
+        current_objection = objection
+        loop_count = 0
+        max_loops = 5  # 無限ループ防止
 
-        try:
-            choice = input("\n裁定を入力 (1-4): ").strip()
-        except EOFError:
-            choice = "4"
+        while loop_count < max_loops:
+            loop_count += 1
 
-        # 統合案は非同期で書記が作成
-        integrated_content: Any | None = None
-        if choice == "3":
-            integrated_content = await self._integrate(proposal, objection)
+            print("\n選択肢:")
+            print("  [1] 海軍案を採択")
+            print("  [2] 陸軍案を採択")
+            print("  [3] 統合案を作成（書記が起草）")
+            print("  [4] 却下")
 
-        decision_map: dict[str, dict[str, Any]] = {
-            "1": {"approved": True, "adopted": "kaigun", "content": proposal},
-            "2": {"approved": True, "adopted": "rikugun", "content": objection},
-            "3": {"approved": True, "adopted": "integrated", "content": integrated_content},
-            "4": {"approved": False, "adopted": None, "content": None},
-        }
+            try:
+                choice = input("\n裁定を入力 (1-4): ").strip()
+            except EOFError:
+                choice = "4"
 
-        decision = decision_map.get(choice, decision_map["4"])
+            if choice == "1":
+                decision = {"approved": True, "adopted": "kaigun", "content": current_proposal}
+                break
+            elif choice == "2":
+                decision = {"approved": True, "adopted": "rikugun", "content": current_objection}
+                break
+            elif choice == "3":
+                # 統合案作成
+                integrated_content = await self._integrate(current_proposal, current_objection)
+
+                print("\n" + "=" * 60)
+                print("📜 【折衷案】")
+                print(f"  {integrated_content.get('summary', 'N/A')}")
+                print("=" * 60)
+
+                # 折衷案の採用/却下を選択
+                print("\n折衷案の裁定:")
+                print("  [1] 採用（承認）")
+                print("  [2] 却下（妥当性検証へ）")
+
+                try:
+                    merge_choice = input("\n裁定を入力 (1-2): ").strip()
+                except EOFError:
+                    merge_choice = "2"
+
+                if merge_choice == "1":
+                    # 採用 - 承認スタンプ
+                    print("\n" + "=" * 60)
+                    print("　　　┏━━━━━━━━━━━━━━━━━━┓")
+                    print("　　　┃　　　　　　　　　　　　　　　　┃")
+                    print("　　　┃　　　　承　　認　　　　┃")
+                    print("　　　┃　　　　　　　　　　　　　　　　┃")
+                    print("　　　┗━━━━━━━━━━━━━━━━━━┛")
+                    print("=" * 60)
+                    decision = {"approved": True, "adopted": "integrated", "content": integrated_content}
+                    break
+                else:
+                    # 却下 - 妥当性検証ループ
+                    print("\n⚓ [海軍参謀] 折衷案の妥当性を検証中...")
+                    validation_result = await self._validate_merged_proposal(
+                        integrated_content, current_proposal, current_objection
+                    )
+
+                    print(f"\n🌊 [海軍参謀] 妥当性検証結果:")
+                    print(f"  {validation_result.get('summary', 'N/A')}")
+
+                    # 検証結果を新たな提案として会議を継続
+                    current_proposal = validation_result
+                    print("\n🪖 [陸軍参謀] 再検討中...")
+                    current_objection = await rikugun_create_objection(
+                        {"mission": validation_result.get("summary", ""), "requirements": []},
+                        validation_result
+                    )
+                    print(f"  {current_objection.get('summary', 'N/A')}")
+
+                    print("\n👑 [国家元首] 再度裁定をお待ちしています...")
+                    print("-" * 60)
+                    print("【海軍の主張（修正案）】")
+                    print(f"  {current_proposal.get('summary', 'N/A')}")
+                    print("\n【陸軍の異議】")
+                    print(f"  {current_objection.get('summary', 'N/A')}")
+                    print("-" * 60)
+                    continue
+
+            else:  # choice == "4" or invalid
+                decision = {"approved": False, "adopted": None, "content": None}
+                break
+
         decision["task_id"] = task_id
         decision["timestamp"] = datetime.now().isoformat()
+        decision["loop_count"] = loop_count
 
         return decision
+
+    async def _validate_merged_proposal(
+        self,
+        merged: dict[str, Any],
+        original_proposal: dict[str, Any],
+        objection: dict[str, Any],
+    ) -> dict[str, Any]:
+        """海軍参謀による折衷案の妥当性検証"""
+        try:
+            from gozen.api_client import get_client
+            from pathlib import Path
+
+            client = get_client("kaigun_sanbou")
+
+            # ペルソナプロンプトを読み込む
+            prompt_file = Path(__file__).parent / "prompts" / "kaigun_sanbou.prompt"
+            if prompt_file.exists():
+                with open(prompt_file, "r", encoding="utf-8") as f:
+                    persona_prompt = f.read()
+            else:
+                persona_prompt = ""
+
+            prompt = (
+                f"{persona_prompt}\n\n"
+                "# 折衷案の妥当性検証\n\n"
+                "国家元首より折衷案の妥当性検証を命じられました。\n"
+                "海軍参謀として、以下の折衷案を検証し、改善提案を行ってください。\n\n"
+                f"## 当初の海軍提案\n{original_proposal.get('summary', 'N/A')}\n\n"
+                f"## 陸軍の異議\n{objection.get('summary', 'N/A')}\n\n"
+                f"## 書記の折衷案\n{merged.get('summary', 'N/A')}\n\n"
+                "## 指示\n"
+                "折衷案の問題点を指摘し、改善案を提示してください。\n"
+                "海軍の理想を維持しつつ、陸軍の懸念に応える修正案を作成してください。\n\n"
+                "## 出力形式\n"
+                "以下のJSON形式で回答してください。\n\n"
+                "```json\n"
+                "{\n"
+                '  "summary": "修正提案の概要（300-500文字）",\n'
+                '  "validation": {"issues": ["問題点1", "問題点2"], "improvements": ["改善点1", "改善点2"]},\n'
+                '  "key_points": ["要点1", "要点2", "要点3"]\n'
+                "}\n"
+                "```"
+            )
+
+            result = await client.call(prompt)
+            content = result.get("content", "")
+
+            # JSONパース
+            import json
+            text = content.strip()
+            if "```json" in text:
+                start = text.index("```json") + 7
+                end = text.index("```", start)
+                text = text[start:end].strip()
+            elif "```" in text:
+                start = text.index("```") + 3
+                end = text.index("```", start)
+                text = text[start:end].strip()
+
+            try:
+                parsed = json.loads(text)
+                return {
+                    "type": "validation",
+                    "from": "kaigun_sanbou",
+                    "title": "折衷案妥当性検証",
+                    **parsed,
+                }
+            except (json.JSONDecodeError, ValueError):
+                return {
+                    "type": "validation",
+                    "from": "kaigun_sanbou",
+                    "title": "折衷案妥当性検証",
+                    "summary": content,
+                    "key_points": [],
+                }
+
+        except Exception as e:
+            print(f"⚠️ [海軍参謀] 妥当性検証失敗: {e}")
+            return {
+                "type": "validation",
+                "from": "kaigun_sanbou",
+                "title": "折衷案妥当性検証（フォールバック）",
+                "summary": "折衷案には改善の余地があります。海軍の理想と陸軍の現実のバランスを再検討する必要があります。",
+                "key_points": ["理想と現実のバランス", "段階的実装の検討", "コスト効率の改善"],
+            }
 
     async def _integrate(self, proposal: dict[str, Any], objection: dict[str, Any]) -> dict[str, Any]:
         """海軍案と陸軍案の統合（書記による折衷案作成）"""

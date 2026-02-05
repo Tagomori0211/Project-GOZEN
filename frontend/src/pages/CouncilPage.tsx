@@ -4,6 +4,7 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import ChatMessage from '../components/ChatMessage'
 import DecisionPanel from '../components/DecisionPanel'
 import StatusTree from '../components/StatusTree'
+import ApprovedStamp from '../components/ApprovedStamp'
 import type {
   ChatMessage as ChatMessageType,
   DecisionOption,
@@ -22,8 +23,12 @@ function CouncilPage() {
   const [phase, setPhase] = useState<SessionPhase>('idle')
   const [decisionOptions, setDecisionOptions] = useState<DecisionOption[]>([])
   const [isAwaitingDecision, setIsAwaitingDecision] = useState(false)
+  const [isAwaitingMergeDecision, setIsAwaitingMergeDecision] = useState(false)
+  const [mergeDecisionOptions, setMergeDecisionOptions] = useState<DecisionOption[]>([])
+  const [showApprovedStamp, setShowApprovedStamp] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
-  const [result, setResult] = useState<{ approved: boolean; adopted: string | null } | null>(null)
+  const [result, setResult] = useState<{ approved: boolean; adopted: string | null; loop_count?: number } | null>(null)
+  const [loopCount, setLoopCount] = useState(1)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasStarted = useRef(false)
@@ -59,6 +64,7 @@ function CouncilPage() {
             proposal: '海軍参謀が提案を作成しています...',
             objection: '陸軍参謀が異議を検討しています...',
             merged: '書記が統合案を起草しています...',
+            validation: '海軍参謀が妥当性を検証しています...',
             execution: '実行部隊が展開しています...',
           }
           if (phaseLabels[message.phase]) {
@@ -98,19 +104,59 @@ function CouncilPage() {
         })
         break
 
+      case 'VALIDATION':
+        addMessage({
+          from: 'kaigun',
+          type: 'validation',
+          content: message.content,
+          fullText: message.fullText,
+        })
+        break
+
       case 'AWAITING_DECISION':
         setDecisionOptions(message.options)
         setIsAwaitingDecision(true)
+        setIsAwaitingMergeDecision(false)
+        if (message.loopCount) {
+          setLoopCount(message.loopCount)
+        }
         addMessage({
           from: 'system',
           type: 'info',
-          content: '国家元首による裁定をお待ちしています。',
+          content: loopCount > 1
+            ? `会議ループ ${loopCount}回目: 国家元首による裁定をお待ちしています。`
+            : '国家元首による裁定をお待ちしています。',
+        })
+        break
+
+      case 'AWAITING_MERGE_DECISION':
+        setMergeDecisionOptions(message.options)
+        setIsAwaitingMergeDecision(true)
+        setIsAwaitingDecision(false)
+        addMessage({
+          from: 'system',
+          type: 'info',
+          content: '折衷案の採用/却下を選択してください。',
+        })
+        break
+
+      case 'APPROVED_STAMP':
+        setShowApprovedStamp(true)
+        setIsAwaitingMergeDecision(false)
+        break
+
+      case 'INFO':
+        addMessage({
+          from: 'system',
+          type: 'info',
+          content: message.content,
         })
         break
 
       case 'COMPLETE':
         setIsComplete(true)
         setIsAwaitingDecision(false)
+        setIsAwaitingMergeDecision(false)
         setResult(message.result)
 
         const resultLabels: Record<string, string> = {
@@ -138,7 +184,7 @@ function CouncilPage() {
         })
         break
     }
-  }, [addMessage])
+  }, [addMessage, loopCount])
 
   const { isConnected, send, connect } = useWebSocket(sessionId, {
     onMessage: handleMessage,
@@ -194,6 +240,28 @@ function CouncilPage() {
     })
   }
 
+  // 折衷案の採用/却下送信
+  const handleMergeDecision = (choice: number) => {
+    send({ type: 'MERGE_DECISION', choice })
+    setIsAwaitingMergeDecision(false)
+
+    const choiceLabels: Record<number, string> = {
+      1: '折衷案を採用',
+      2: '折衷案を却下（妥当性検証へ）',
+    }
+
+    addMessage({
+      from: 'genshu',
+      type: 'decision',
+      content: `裁定: ${choiceLabels[choice] || '不明'}`,
+    })
+  }
+
+  // 承認スタンプを閉じる
+  const handleCloseStamp = () => {
+    setShowApprovedStamp(false)
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-900">
       {/* ヘッダー */}
@@ -204,6 +272,11 @@ function CouncilPage() {
             <span className="text-slate-500 text-sm">
               Session: {sessionId}
             </span>
+            {loopCount > 1 && (
+              <span className="text-xs text-genshu-400 bg-genshu-900/30 px-2 py-1 rounded">
+                ループ {loopCount}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -244,6 +317,11 @@ function CouncilPage() {
                          result.adopted === 'integrated' ? '統合案' : result.adopted}
                 </div>
               )}
+              {result.loop_count && result.loop_count > 1 && (
+                <div className="text-xs text-slate-500 mt-1">
+                  会議ループ: {result.loop_count}回
+                </div>
+              )}
 
               <button
                 onClick={() => navigate('/')}
@@ -261,7 +339,23 @@ function CouncilPage() {
         <DecisionPanel
           options={decisionOptions}
           onDecide={handleDecision}
+          mode="decision"
+          loopCount={loopCount}
         />
+      )}
+
+      {/* 折衷案採用/却下パネル */}
+      {isAwaitingMergeDecision && (
+        <DecisionPanel
+          options={mergeDecisionOptions}
+          onDecide={handleMergeDecision}
+          mode="merge_decision"
+        />
+      )}
+
+      {/* 承認スタンプ */}
+      {showApprovedStamp && (
+        <ApprovedStamp onClose={handleCloseStamp} />
       )}
     </div>
   )

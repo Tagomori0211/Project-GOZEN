@@ -7,6 +7,8 @@ export type SessionPhase =
   | 'proposal'
   | 'objection'
   | 'merged'
+  | 'merge_decision'
+  | 'validation'
   | 'decision'
   | 'execution'
   | 'completed'
@@ -25,7 +27,7 @@ export interface Proposal {
 export interface ChatMessage {
   id: string;
   from: MessageFrom;
-  type: 'proposal' | 'objection' | 'merged' | 'decision' | 'info' | 'error';
+  type: 'proposal' | 'objection' | 'merged' | 'validation' | 'decision' | 'info' | 'error';
   content: Proposal | string;
   fullText?: string;
   timestamp: Date;
@@ -62,9 +64,31 @@ export interface WSMergedMessage {
   fullText: string;
 }
 
+export interface WSValidationMessage {
+  type: 'VALIDATION';
+  content: Proposal;
+  fullText: string;
+}
+
 export interface WSAwaitingDecisionMessage {
   type: 'AWAITING_DECISION';
   options: DecisionOption[];
+  loopCount?: number;
+}
+
+export interface WSAwaitingMergeDecisionMessage {
+  type: 'AWAITING_MERGE_DECISION';
+  options: DecisionOption[];
+}
+
+export interface WSApprovedStampMessage {
+  type: 'APPROVED_STAMP';
+}
+
+export interface WSInfoMessage {
+  type: 'INFO';
+  from: string;
+  content: string;
 }
 
 export interface WSCompleteMessage {
@@ -73,6 +97,7 @@ export interface WSCompleteMessage {
     approved: boolean;
     adopted: string | null;
     mode: CouncilMode;
+    loop_count?: number;
   };
 }
 
@@ -86,7 +111,11 @@ export type WSServerMessage =
   | WSProposalMessage
   | WSObjectionMessage
   | WSMergedMessage
+  | WSValidationMessage
   | WSAwaitingDecisionMessage
+  | WSAwaitingMergeDecisionMessage
+  | WSApprovedStampMessage
+  | WSInfoMessage
   | WSCompleteMessage
   | WSErrorMessage;
 
@@ -103,4 +132,9 @@ export interface WSDecisionMessage {
   choice: number;
 }
 
-export type WSClientMessage = WSStartMessage | WSDecisionMessage;
+export interface WSMergeDecisionMessage {
+  type: 'MERGE_DECISION';
+  choice: number;
+}
+
+export type WSClientMessage = WSStartMessage | WSDecisionMessage | WSMergeDecisionMessage;
