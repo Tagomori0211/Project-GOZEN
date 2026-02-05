@@ -117,11 +117,12 @@ def _rc(
 RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
     SecurityLevel.PUBLIC: {
         # === 参謀層（最上位モデル・高度な推論） ===
+        # NOTE: Claude API 一時停止中のため Gemini Pro を使用
         "kaigun_sanbou": _rc(
             name_ja="海軍参謀", name_en="Naval Staff",
             branch=Branch.KAIGUN,
-            model="claude-opus-4-5-20251101",
-            backend=InferenceBackend.CLAUDE_API,
+            model="gemini-2.5-pro",
+            backend=InferenceBackend.GEMINI_API,
         ),
         "rikugun_sanbou": _rc(
             name_ja="陸軍参謀", name_en="Army Staff",
@@ -131,11 +132,12 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
         ),
 
         # === 中間層（Sonnet/Flash） ===
+        # NOTE: Claude API 一時停止中のため Gemini Flash を使用
         "teitoku": _rc(
             name_ja="提督", name_en="Admiral",
             branch=Branch.KAIGUN,
-            model="claude-sonnet-4-5-20250929",
-            backend=InferenceBackend.CLAUDE_API,
+            model="gemini-2.5-flash",
+            backend=InferenceBackend.GEMINI_API,
         ),
         "shikan": _rc(
             name_ja="士官", name_en="Officer",
@@ -145,25 +147,28 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
         ),
 
         # === 書記（軽量・高速） ===
+        # NOTE: Claude API 一時停止中のため Gemini Flash を使用
         "shoki": _rc(
             name_ja="書記", name_en="Clerk",
             branch=Branch.KAIGUN,
-            model="claude-haiku-4-5-20251001",
-            backend=InferenceBackend.CLAUDE_API,
+            model="gemini-2.5-flash",
+            backend=InferenceBackend.GEMINI_API,
         ),
 
         # === 実行層（軽量・並列） ===
+        # NOTE: Claude API 一時停止中のため Gemini Flash を使用
         "kancho": _rc(
             name_ja="艦長", name_en="Captain",
             branch=Branch.KAIGUN,
-            model="claude-haiku-4-5-20251001",
-            backend=InferenceBackend.CLAUDE_API,
+            model="gemini-2.5-flash",
+            backend=InferenceBackend.GEMINI_API,
         ),
+        # NOTE: Claude API 一時停止中のため Gemini Flash を使用
         "kaihei": _rc(
             name_ja="海兵", name_en="Marine",
             branch=Branch.KAIGUN,
-            model="claude-haiku-4-5-20251001",
-            backend=InferenceBackend.CLAUDE_API,
+            model="gemini-2.5-flash",
+            backend=InferenceBackend.GEMINI_API,
             parallel=8,
         ),
         "hohei": _rc(
