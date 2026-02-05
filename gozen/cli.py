@@ -4,6 +4,7 @@ Project GOZEN CLI
 御前会議をコマンドラインから実行する。
 
 コマンド:
+  gozen                      Web UI起動（ブラウザが開く）
   gozen <task_file>          タスク実行
   gozen --interactive        インタラクティブモード
   gozen decide               エスカレーション時の元首裁定
@@ -30,6 +31,9 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 例:
+  # Web UI起動（引数なし）
+  gozen
+
   # タスク実行
   gozen task.yaml
 
@@ -142,14 +146,17 @@ def main() -> None:
         run_setup(args)
         return
 
+    # 引数なしの場合はWeb UI起動
+    if not args.interactive and not args.task_file:
+        run_web()
+        return
+
     print_banner()
 
     if args.interactive:
         run_interactive(args)
     elif args.task_file:
         run_task(args)
-    else:
-        parser.print_help()
 
 
 def print_banner() -> None:
@@ -425,6 +432,25 @@ def _abort_task(task_id: str) -> None:
     """タスク中止処理"""
     from gozen.council_mode import resolve_deadlock
     resolve_deadlock(task_id, adopted="abort")
+
+
+def run_web() -> None:
+    """Web UI起動"""
+    print_banner()
+    print("🌐 Web UI を起動しています...")
+    print("   ブラウザが自動で開きます。")
+    print("   終了するには Ctrl+C を押してください。")
+    print()
+
+    try:
+        from gozen.web import start_server
+        start_server(host="127.0.0.1", port=8080, open_browser=True)
+    except ImportError as e:
+        print(f"エラー: Web UIの依存関係がインストールされていません。")
+        print(f"  pip install fastapi uvicorn[standard] websockets")
+        print(f"  詳細: {e}")
+    except KeyboardInterrupt:
+        print("\n\n御前会議Web UIを終了します。")
 
 
 if __name__ == "__main__":
