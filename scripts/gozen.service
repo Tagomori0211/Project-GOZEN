@@ -1,0 +1,15 @@
+[Unit]
+Description=Project GOZEN Web UI Service
+After=network.target
+
+[Service]
+User=shinari
+Group=shinari
+WorkingDirectory=/home/shinari/project-gozen
+EnvironmentFile=/home/shinari/project-gozen/.env
+ExecStart=/home/shinari/project-gozen/.venv/bin/gozen
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
