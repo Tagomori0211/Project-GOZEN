@@ -157,7 +157,7 @@ function CouncilPage() {
       case 'SHOKI_SUMMARY':
         addMessage({
           from: 'shoki',
-          type: 'info',
+          type: 'decree',
           content: message.content,
         })
         break

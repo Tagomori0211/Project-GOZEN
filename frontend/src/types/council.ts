@@ -24,11 +24,23 @@ export interface Proposal {
   key_points: string[];
 }
 
+export interface DecreeData {
+  decree_text: string;
+  criteria: string[];
+  signatories: {
+    kaigun: boolean;
+    rikugun: boolean;
+    shogun: boolean;
+  };
+  timestamp: string;
+  adopted_type: string;
+}
+
 export interface ChatMessage {
   id: string;
   from: MessageFrom;
-  type: 'proposal' | 'objection' | 'merged' | 'validation' | 'decision' | 'info' | 'error';
-  content: Proposal | string;
+  type: 'proposal' | 'objection' | 'merged' | 'validation' | 'decision' | 'info' | 'error' | 'decree';
+  content: Proposal | string | DecreeData;
   fullText?: string;
   timestamp: Date;
 }
@@ -108,7 +120,7 @@ export interface WSErrorMessage {
 
 export interface WSShokiSummaryMessage {
   type: 'SHOKI_SUMMARY';
-  content: string;
+  content: string | DecreeData;
 }
 
 export type WSServerMessage =

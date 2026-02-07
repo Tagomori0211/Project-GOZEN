@@ -1,5 +1,6 @@
 import type { ChatMessage as ChatMessageType } from '../types/council'
 import ProposalCard from './ProposalCard'
+import Decree from './Decree'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -49,7 +50,7 @@ function ChatMessage({ message }: ChatMessageProps) {
     },
   }
 
-  const { icon, label, bgColor, borderColor, iconBg } = config[from]
+  const { icon, label, bgColor, borderColor, iconBg } = (config as any)[from] || config.system
 
   // タイプラベル
   const typeLabels: Record<string, string> = {
@@ -60,6 +61,7 @@ function ChatMessage({ message }: ChatMessageProps) {
     decision: '裁定',
     info: '情報',
     error: 'エラー',
+    decree: '裁定通達',
   }
 
   return (
@@ -77,12 +79,14 @@ function ChatMessage({ message }: ChatMessageProps) {
 
       {/* コンテンツ */}
       <div className="text-slate-300 prose prose-invert max-w-none">
-        {type === 'error' ? (
+        {type === 'decree' && typeof content === 'object' && 'decree_text' in content ? (
+          <Decree data={content as any} />
+        ) : type === 'error' ? (
           <div className="text-red-400 bg-red-900/20 p-3 rounded">
             {typeof content === 'string' ? content : JSON.stringify(content)}
           </div>
         ) : typeof content === 'object' && 'title' in content ? (
-          <ProposalCard proposal={content} fullText={fullText} />
+          <ProposalCard proposal={content as any} fullText={fullText} />
         ) : (
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {typeof content === 'string' ? content : JSON.stringify(content, null, 2)}

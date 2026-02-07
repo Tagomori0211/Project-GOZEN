@@ -291,37 +291,88 @@ gozen decide --task <TASK_ID> --action <ACTION>
                 "rikugun_elements": objection.get("key_points", []),
             }
 
-    async def summarize_decision(self, decision: dict[str, Any]) -> str:
-        """裁定結果を中立的に要約"""
+    async def summarize_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
+        """裁定結果を構造化データとして返却"""
         try:
             from gozen.api_client import get_client
             client = get_client("shoki")
 
             adopted_content = decision.get("content", {})
             adopted_type = decision.get("adopted", "unknown")
+            reason = decision.get("reason", "")
+
+            # 印鑑ステータスの決定
+            seal_status = {
+                "kaigun": True,   # 参加済み
+                "rikugun": True,  # 参加済み
+                "shogun": False   # 元首（これから押印）
+            }
 
             prompt = f"""
 あなたは御前会議の書記です。
 国家元首の裁定により、以下の案が採択されました。
-中立的な立場で、決定事項の要約（全軍への通達文）を作成してください。
+「裁定通達書」を作成するために必要な情報をJSON形式で出力してください。
 
 【裁定結果】
-・採択された案: {adopted_type}（{'海軍案' if adopted_type == 'kaigun' else '陸軍案' if adopted_type == 'rikugun' else '統合案'}）
+・採択: {adopted_type}（{'海軍案' if adopted_type == 'kaigun' else '陸軍案' if adopted_type == 'rikugun' else '統合案'}）
+・元首コメント: {reason}
 
 【決定内容詳細】
 {adopted_content}
 
-【指示】
-・感情を排した、厳格かつ簡潔な「書記官の文体」で記述すること。
-・決定事項の核心を3〜5行でまとめること。
-・「以上、通達する。」で締めくくること。
+【出力JSON形式】
+{{
+  "decree_text": "決定事項の核心を記述した、感情を排した厳格な『書記官の文体』の文章（3〜5行）。文末は『以上において最終の決を与える。』で締めくくること。",
+  "criteria": ["争点1への判断基準", "争点2への判断基準", "コスト対効果の評価"],
+  "date": "{datetime.now().strftime('%Y年%m月%d日')}"
+}}
 """
             result = await client.call(prompt)
-            return result.get("content", "要約の生成に失敗しました。")
+            content = result.get("content", "")
+
+            # JSONパース試行
+            import json
+            import re
+            
+            json_str = content
+            # コードブロック除去
+            if "```json" in content:
+                match = re.search(r"```json(.*?)```", content, re.DOTALL)
+                if match:
+                    json_str = match.group(1)
+            elif "```" in content:
+                match = re.search(r"```(.*?)```", content, re.DOTALL)
+                if match:
+                    json_str = match.group(1)
+
+            try:
+                data = json.loads(json_str.strip())
+            except json.JSONDecodeError:
+                # フォールバック
+                data = {
+                    "decree_text": "決定事項の要約生成に失敗しました。以上において最終の決を与える。",
+                    "criteria": ["詳細不明"],
+                    "date": datetime.now().strftime('%Y年%m月%d日')
+                }
+
+            return {
+                "type": "decree",
+                "decree_text": data.get("decree_text", ""),
+                "criteria": data.get("criteria", []),
+                "signatories": seal_status,
+                "timestamp": data.get("date", datetime.now().strftime('%Y年%m月%d日')),
+                "adopted_type": adopted_type
+            }
 
         except Exception as e:
             logger.error("書記要約失敗: %s", e)
-            return "決定事項の要約生成中にエラーが発生しました。"
+            return {
+                "type": "decree",
+                "decree_text": "エラーが発生しました。",
+                "criteria": [],
+                "signatories": {"kaigun": False, "rikugun": False, "shogun": False},
+                "timestamp": datetime.now().isoformat()
+            }
 
     async def _update_dashboard(self) -> None:
         """dashboard.md に書記記録セクションを更新"""
