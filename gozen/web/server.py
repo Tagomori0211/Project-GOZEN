@@ -12,8 +12,8 @@ import webbrowser
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Any, Callable
+
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
@@ -341,6 +341,8 @@ async def run_council(session_id: str) -> None:
                 state.merge_decision_future = asyncio.get_event_loop().create_future()
                 merge_choice = await state.merge_decision_future
 
+                print(f"DEBUG: Merge choice received: {merge_choice}")
+
                 if merge_choice == 1:
                     # 採用 - 承認スタンプ
                     await broadcast(session_id, {
@@ -350,6 +352,7 @@ async def run_council(session_id: str) -> None:
                     break
                 else:
                     # 却下 - 妥当性検証ループ
+                    print("DEBUG: Merge rejected, starting validation loop")
                     state.phase = SessionPhase.VALIDATION
                     await broadcast(session_id, {
                         "type": "PHASE",
@@ -502,6 +505,8 @@ async def run_council(session_id: str) -> None:
         if decision is None:
             decision = {"approved": False, "adopted": None, "content": None, "reason": "max_loops_reached"}
 
+        print(f"DEBUG: Decision reached: {decision}")
+
         decision["timestamp"] = datetime.now().isoformat()
         decision["loop_count"] = state.loop_count
         state.decision = decision
@@ -509,6 +514,7 @@ async def run_council(session_id: str) -> None:
         if decision.get("approved"):
             # --- 書記による要約 ---
             try:
+                print("DEBUG: Calling Shoki summarize_decision...")
                 from gozen.shoki import Shoki, ShokiConfig
                 from gozen.config import get_rank_config
                 config = get_rank_config("shoki")
@@ -524,14 +530,18 @@ async def run_council(session_id: str) -> None:
                 })
                 
                 summary_text = await shoki.summarize_decision(decision)
+                print(f"DEBUG: Shoki summary received: {summary_text}")
                 
                 await broadcast(session_id, {
                     "type": "SHOKI_SUMMARY",
                     "content": summary_text,
                 })
+                print("DEBUG: SHOKI_SUMMARY broadcasted")
                 
             except Exception as e:
                 print(f"書記要約エラー: {e}")
+                import traceback
+                traceback.print_exc()
 
         # 完了
         state.phase = SessionPhase.COMPLETED
@@ -561,6 +571,8 @@ async def validate_merged_proposal(
 ) -> dict[str, Any]:
     """海軍参謀による折衷案の妥当性検証"""
     try:
+        # デバッグ: 強制的にフォールバック
+        raise Exception("Debug mode")
         from gozen.api_client import get_client
 
         client = get_client("kaigun_sanbou")
@@ -644,6 +656,8 @@ async def integrate_proposals(
 ) -> dict[str, Any]:
     """提案と異議を統合"""
     try:
+        # デバッグ: 強制的にフォールバック
+        raise Exception("Debug mode")
         from gozen.shoki import Shoki, ShokiConfig
         from gozen.config import get_rank_config
 

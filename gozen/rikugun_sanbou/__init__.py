@@ -76,29 +76,11 @@ class RikugunSanbou:
         mission = task.get("mission", "")
         title = f"陸軍異議: {_safe_truncate(mission)}"
 
-        # API呼び出しを試行
-        try:
-            api_result = await self._call_api(mission, task, proposal)
-            await dashboard.unit_update("rikugun", "rikugun_sanbou", "main", "completed")
-            return {
-                "type": "objection",
-                "from": "rikugun_sanbou",
-                "regarding": proposal.get("title", ""),
-                "timestamp": datetime.now().isoformat(),
-                "title": title,
-                "summary": api_result.get("summary", ""),
-                "concerns": api_result.get(
-                    "concerns",
-                    self._identify_concerns_template(),
-                ),
-                "alternative": api_result.get("alternative", {}),
-                "key_points": api_result.get("key_points", []),
-                "compromise": api_result.get("compromise", {}),
-            }
-        except Exception as e:
-            print(f"⚠️ [陸軍参謀] API呼び出し失敗、テンプレート応答にフォールバック: {e}")
-            await dashboard.unit_update("rikugun", "rikugun_sanbou", "main", "completed", "フォールバック")
-            return self._fallback_objection(mission, task, proposal, title)
+        # デバッグ: API呼び出しをスキップしてテンプレート応答を返す
+        print("⚠️ [陸軍参謀] デバッグモード: APIスキップ")
+        return self._fallback_objection(mission, task, proposal, title)
+
+
 
     async def _call_api(
         self, mission: str, task: dict[str, Any], proposal: dict[str, Any]
