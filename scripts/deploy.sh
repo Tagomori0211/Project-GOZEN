@@ -15,10 +15,15 @@ pip install -e .
 # 2. Build Frontend
 echo "Building Frontend..."
 
-# WSLにインストール済みの nvm/Node v20 を有効化する
-export NVM_DIR="/home/shinari/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-nvm use 20 > /dev/null
+# NVMを有効化し、Node v20 を使用する
+export NVM_DIR="$HOME/.nvm"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    source "$NVM_DIR/nvm.sh"
+    nvm use 20 > /dev/null
+else
+    echo "Error: nvm.sh not found at $NVM_DIR/nvm.sh"
+    exit 1
+fi
 
 echo "Using Node $(node -v)"
 
