@@ -44,3 +44,6 @@ docs
 
 # Node.js local binaries
 node-v*/
+
+# AI Agent configuration/workflows
+.agent/
