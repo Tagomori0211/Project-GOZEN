@@ -26,6 +26,7 @@ function CouncilPage() {
   const [isAwaitingMergeDecision, setIsAwaitingMergeDecision] = useState(false)
   const [mergeDecisionOptions, setMergeDecisionOptions] = useState<DecisionOption[]>([])
   const [showApprovedStamp, setShowApprovedStamp] = useState(false)
+  const [stampText, setStampText] = useState("承認")
   const [isComplete, setIsComplete] = useState(false)
   const [result, setResult] = useState<{ approved: boolean; adopted: string | null; loop_count?: number } | null>(null)
   const [loopCount, setLoopCount] = useState(1)
@@ -153,6 +154,14 @@ function CouncilPage() {
         })
         break
 
+      case 'SHOKI_SUMMARY':
+        addMessage({
+          from: 'shoki',
+          type: 'info',
+          content: message.content,
+        })
+        break
+
       case 'COMPLETE':
         setIsComplete(true)
         setIsAwaitingDecision(false)
@@ -173,6 +182,17 @@ function CouncilPage() {
           type: 'decision',
           content: resultMessage,
         })
+
+        if (message.result.approved) {
+          // 承認スタンプ表示
+          const stampLabels: Record<string, string> = {
+            kaigun: '海軍案',
+            rikugun: '陸軍案',
+            integrated: '統合案',
+          }
+          setStampText(stampLabels[message.result.adopted || ''] || '承認')
+          setShowApprovedStamp(true)
+        }
         break
 
       case 'ERROR':
@@ -313,8 +333,8 @@ function CouncilPage() {
               {result.adopted && (
                 <div className="text-sm text-slate-400 mt-1">
                   採択: {result.adopted === 'kaigun' ? '海軍案' :
-                         result.adopted === 'rikugun' ? '陸軍案' :
-                         result.adopted === 'integrated' ? '統合案' : result.adopted}
+                    result.adopted === 'rikugun' ? '陸軍案' :
+                      result.adopted === 'integrated' ? '統合案' : result.adopted}
                 </div>
               )}
               {result.loop_count && result.loop_count > 1 && (
@@ -355,7 +375,7 @@ function CouncilPage() {
 
       {/* 承認スタンプ */}
       {showApprovedStamp && (
-        <ApprovedStamp onClose={handleCloseStamp} />
+        <ApprovedStamp onClose={handleCloseStamp} text={stampText} />
       )}
     </div>
   )

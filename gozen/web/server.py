@@ -453,6 +453,33 @@ async def run_council(session_id: str) -> None:
                 "status": "completed",
             })
 
+        if decision.get("approved"):
+            # --- 書記による要約 ---
+            try:
+                from gozen.shoki import Shoki, ShokiConfig
+                from gozen.config import get_rank_config
+                config = get_rank_config("shoki")
+                shoki = Shoki(ShokiConfig(
+                    model=config.model,
+                    backend=config.backend.value,
+                ))
+                
+                await broadcast(session_id, {
+                    "type": "INFO",
+                    "from": "shoki",
+                    "content": "書記が決定事項の通達文を作成中...",
+                })
+                
+                summary_text = await shoki.summarize_decision(decision)
+                
+                await broadcast(session_id, {
+                    "type": "SHOKI_SUMMARY",
+                    "content": summary_text,
+                })
+                
+            except Exception as e:
+                print(f"書記要約エラー: {e}")
+
         # 完了
         state.phase = SessionPhase.COMPLETED
         await broadcast(session_id, {

@@ -1,8 +1,10 @@
 interface ApprovedStampProps {
   onClose?: () => void;
+  text?: string;
+  subText?: string;
 }
 
-function ApprovedStamp({ onClose }: ApprovedStampProps) {
+function ApprovedStamp({ onClose, text = "承認", subText = "APPROVED" }: ApprovedStampProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in"
@@ -17,11 +19,11 @@ function ApprovedStamp({ onClose }: ApprovedStampProps) {
 
           {/* 中央テキスト */}
           <div className="text-center">
-            <div className="font-serif text-red-600 text-7xl font-bold tracking-widest transform -rotate-12">
-              承認
+            <div className="font-serif text-red-600 text-6xl font-bold tracking-widest transform -rotate-12 whitespace-nowrap px-4">
+              {text}
             </div>
             <div className="text-red-600 text-lg mt-2 transform -rotate-12">
-              APPROVED
+              {subText}
             </div>
           </div>
 

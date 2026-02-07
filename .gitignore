@@ -41,3 +41,6 @@ gozen/web/static/index.html
 
 #docs
 docs
+
+# Node.js local binaries
+node-v*/

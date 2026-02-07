@@ -13,6 +13,22 @@ pip install -e .
 
 # 2. Build Frontend
 echo "Building Frontend..."
+
+# Ensure Node.js v20 is available
+NODE_VERSION="v20.11.0"
+NODE_DIR="$PROJECT_ROOT/node-$NODE_VERSION-linux-x64"
+
+if ! command -v node >/dev/null 2>&1 || [[ "$(node -v)" != v20* ]]; then
+    if [ ! -d "$NODE_DIR" ]; then
+        echo "Node.js v20 not found. Downloading..."
+        wget -q https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-x64.tar.xz
+        tar -xf node-$NODE_VERSION-linux-x64.tar.xz
+        rm node-$NODE_VERSION-linux-x64.tar.xz
+    fi
+    export PATH="$NODE_DIR/bin:$PATH"
+fi
+
+echo "Using Node $(node -v)"
 cd frontend
 npm install
 npm run build

@@ -106,6 +106,11 @@ export interface WSErrorMessage {
   message: string;
 }
 
+export interface WSShokiSummaryMessage {
+  type: 'SHOKI_SUMMARY';
+  content: string;
+}
+
 export type WSServerMessage =
   | WSPhaseMessage
   | WSProposalMessage
@@ -115,6 +120,7 @@ export type WSServerMessage =
   | WSAwaitingDecisionMessage
   | WSAwaitingMergeDecisionMessage
   | WSApprovedStampMessage
+  | WSShokiSummaryMessage
   | WSInfoMessage
   | WSCompleteMessage
   | WSErrorMessage;

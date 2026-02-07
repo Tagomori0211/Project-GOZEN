@@ -1,5 +1,7 @@
 import type { ChatMessage as ChatMessageType } from '../types/council'
 import ProposalCard from './ProposalCard'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface ChatMessageProps {
   message: ChatMessageType
@@ -74,21 +76,19 @@ function ChatMessage({ message }: ChatMessageProps) {
       </div>
 
       {/* コンテンツ */}
-      {type === 'error' ? (
-        <div className="text-red-400 bg-red-900/20 p-3 rounded">
-          {typeof content === 'string' ? content : JSON.stringify(content)}
-        </div>
-      ) : type === 'info' ? (
-        <div className="text-slate-300">
-          {typeof content === 'string' ? content : JSON.stringify(content)}
-        </div>
-      ) : typeof content === 'object' && 'title' in content ? (
-        <ProposalCard proposal={content} fullText={fullText} />
-      ) : (
-        <div className="text-slate-300">
-          {typeof content === 'string' ? content : JSON.stringify(content)}
-        </div>
-      )}
+      <div className="text-slate-300 prose prose-invert max-w-none">
+        {type === 'error' ? (
+          <div className="text-red-400 bg-red-900/20 p-3 rounded">
+            {typeof content === 'string' ? content : JSON.stringify(content)}
+          </div>
+        ) : typeof content === 'object' && 'title' in content ? (
+          <ProposalCard proposal={content} fullText={fullText} />
+        ) : (
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {typeof content === 'string' ? content : JSON.stringify(content, null, 2)}
+          </ReactMarkdown>
+        )}
+      </div>
     </div>
   )
 }

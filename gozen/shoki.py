@@ -288,6 +288,38 @@ gozen decide --task <TASK_ID> --action <ACTION>
                 "rikugun_elements": objection.get("key_points", []),
             }
 
+    async def summarize_decision(self, decision: dict[str, Any]) -> str:
+        """裁定結果を中立的に要約"""
+        try:
+            from gozen.api_client import get_client
+            client = get_client("shoki")
+
+            adopted_content = decision.get("content", {})
+            adopted_type = decision.get("adopted", "unknown")
+
+            prompt = f"""
+あなたは御前会議の書記です。
+国家元首の裁定により、以下の案が採択されました。
+中立的な立場で、決定事項の要約（全軍への通達文）を作成してください。
+
+【裁定結果】
+・採択された案: {adopted_type}（{'海軍案' if adopted_type == 'kaigun' else '陸軍案' if adopted_type == 'rikugun' else '統合案'}）
+
+【決定内容詳細】
+{adopted_content}
+
+【指示】
+・感情を排した、厳格かつ簡潔な「書記官の文体」で記述すること。
+・決定事項の核心を3〜5行でまとめること。
+・「以上、通達する。」で締めくくること。
+"""
+            result = await client.call(prompt)
+            return result.get("content", "要約の生成に失敗しました。")
+
+        except Exception as e:
+            logger.error("書記要約失敗: %s", e)
+            return "決定事項の要約生成中にエラーが発生しました。"
+
     async def _update_dashboard(self) -> None:
         """dashboard.md に書記記録セクションを更新"""
         try:
