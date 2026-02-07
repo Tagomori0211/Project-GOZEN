@@ -178,8 +178,8 @@ function CouncilPage() {
           : '案は却下されました。'
 
         addMessage({
-          from: 'genshu',
-          type: 'decision',
+          from: 'system',
+          type: 'info',
           content: resultMessage,
         })
 

@@ -85,7 +85,7 @@ function ChatMessage({ message }: ChatMessageProps) {
           <div className="text-red-400 bg-red-900/20 p-3 rounded">
             {typeof content === 'string' ? content : JSON.stringify(content)}
           </div>
-        ) : typeof content === 'object' && 'title' in content ? (
+        ) : typeof content === 'object' && ('title' in content || 'summary' in content || 'key_points' in content) ? (
           <ProposalCard proposal={content as any} fullText={fullText} />
         ) : (
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
