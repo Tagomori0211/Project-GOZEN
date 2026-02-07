@@ -40,6 +40,10 @@ ls -l ../gozen/web/static/
 
 # 4. Restart Background Service
 echo "Restarting gozen service..."
+echo "Current user is: $(whoami)"
+
+
+echo "Executing: sudo /usr/bin/systemctl restart gozen"
 # sudoのパスワード入力を求められないよう、visudo等の設定が必要な場合もあるけ注意してね
 sudo /usr/bin/systemctl restart gozen
 
