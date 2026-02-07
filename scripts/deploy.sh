@@ -35,8 +35,8 @@ npm run build
 # 3. Copy Frontend Assets to Backend Static Dir
 echo "Syncing frontend assets..."
 mkdir -p ../gozen/web/static/
-# Viteの出力先(dist)をバックエンドの静的ディレクトリに同期
-cp -r dist/* ../gozen/web/static/
+# Viteが直接 gozen/web/static/ に出力するためコピーは不要ばい
+ls -l ../gozen/web/static/
 
 # 4. Restart Background Service
 echo "Restarting gozen service..."
