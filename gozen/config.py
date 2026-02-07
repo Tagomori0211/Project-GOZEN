@@ -131,21 +131,6 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
             backend=InferenceBackend.GEMINI_API,
         ),
 
-        # === 中間層（Sonnet/Flash） ===
-        # NOTE: Claude API 一時停止中のため Gemini Flash を使用
-        "teitoku": _rc(
-            name_ja="提督", name_en="Admiral",
-            branch=Branch.KAIGUN,
-            model="gemini-2.5-flash",
-            backend=InferenceBackend.GEMINI_API,
-        ),
-        "shikan": _rc(
-            name_ja="士官", name_en="Officer",
-            branch=Branch.RIKUGUN,
-            model="gemini-2.5-flash",
-            backend=InferenceBackend.GEMINI_API,
-        ),
-
         # === 書記（軽量・高速） ===
         # NOTE: Claude API 一時停止中のため Gemini Flash を使用
         "shoki": _rc(
@@ -153,30 +138,6 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
             branch=Branch.KAIGUN,
             model="gemini-2.5-flash",
             backend=InferenceBackend.GEMINI_API,
-        ),
-
-        # === 実行層（軽量・並列） ===
-        # NOTE: Claude API 一時停止中のため Gemini Flash を使用
-        "kancho": _rc(
-            name_ja="艦長", name_en="Captain",
-            branch=Branch.KAIGUN,
-            model="gemini-2.5-flash",
-            backend=InferenceBackend.GEMINI_API,
-        ),
-        # NOTE: Claude API 一時停止中のため Gemini Flash を使用
-        "kaihei": _rc(
-            name_ja="海兵", name_en="Marine",
-            branch=Branch.KAIGUN,
-            model="gemini-2.5-flash",
-            backend=InferenceBackend.GEMINI_API,
-            parallel=8,
-        ),
-        "hohei": _rc(
-            name_ja="歩兵", name_en="Infantry",
-            branch=Branch.RIKUGUN,
-            model="gemini-2.5-flash",
-            backend=InferenceBackend.GEMINI_API,
-            parallel=4,
         ),
     },
     SecurityLevel.CONFIDENTIAL: {
@@ -194,48 +155,12 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
             backend=InferenceBackend.OLLAMA_LOCAL,
         ),
 
-        # === 中間層（14B） ===
-        "teitoku": _rc(
-            name_ja="提督", name_en="Admiral",
-            branch=Branch.KAIGUN,
-            model="qwen2.5:14b-instruct-q4_K_M",
-            backend=InferenceBackend.OLLAMA_LOCAL,
-        ),
-        "shikan": _rc(
-            name_ja="士官", name_en="Officer",
-            branch=Branch.RIKUGUN,
-            model="qwen2.5:14b-instruct-q4_K_M",
-            backend=InferenceBackend.OLLAMA_LOCAL,
-        ),
-
         # === 書記（7B・高速） ===
         "shoki": _rc(
             name_ja="書記", name_en="Clerk",
             branch=Branch.KAIGUN,
             model="qwen2.5:7b-instruct-q8_0",
             backend=InferenceBackend.OLLAMA_LOCAL,
-        ),
-
-        # === 実行層（7B・並列） ===
-        "kancho": _rc(
-            name_ja="艦長", name_en="Captain",
-            branch=Branch.KAIGUN,
-            model="qwen2.5:7b-instruct-q8_0",
-            backend=InferenceBackend.OLLAMA_LOCAL,
-        ),
-        "kaihei": _rc(
-            name_ja="海兵", name_en="Marine",
-            branch=Branch.KAIGUN,
-            model="qwen2.5:7b-instruct-q8_0",
-            backend=InferenceBackend.OLLAMA_LOCAL,
-            parallel=2,
-        ),
-        "hohei": _rc(
-            name_ja="歩兵", name_en="Infantry",
-            branch=Branch.RIKUGUN,
-            model="qwen2.5:7b-instruct-q8_0",
-            backend=InferenceBackend.OLLAMA_LOCAL,
-            parallel=2,
         ),
     },
 }
@@ -285,14 +210,11 @@ API_TIERS: dict[int, TierConfig] = {
 class CostEstimate:
     """月額コスト見積もり"""
     subscription: float = 20.0
-    teitoku_kancho: float = 0.0
-    kaihei: float = 0.0
-    hohei: float = 7.5
     exchange_rate: float = 150.0
 
     @property
     def total(self) -> float:
-        return self.subscription + self.teitoku_kancho + self.kaihei + self.hohei
+        return self.subscription
 
     @property
     def total_jpy(self) -> float:

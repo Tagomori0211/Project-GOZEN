@@ -28,7 +28,7 @@ venv/
 *~
 
 # Project-specific
-queue/*.yaml
+queue/
 status/dashboard.md
 *.log
 .DS_Store

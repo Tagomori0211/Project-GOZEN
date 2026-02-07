@@ -261,10 +261,13 @@ gozen decide --task <TASK_ID> --action <ACTION>
             result = await client.call(prompt)
             content = result.get("content", "")
 
+            # Markdownコードブロックの除去
+            cleaned_content = content.replace("```yaml", "").replace("```", "").strip()
+
             # YAML パース試行
             import yaml
             try:
-                parsed = yaml.safe_load(content)
+                parsed = yaml.safe_load(cleaned_content)
                 if isinstance(parsed, dict):
                     return parsed
             except yaml.YAMLError:

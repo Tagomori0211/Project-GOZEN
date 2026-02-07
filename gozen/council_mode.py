@@ -35,7 +35,6 @@ from gozen.character import (
 
 class CouncilMode(Enum):
     """御前会議モード"""
-    EXECUTE = "execute"
     COUNCIL = "council"
     DRYRUN = "dryrun"
 
@@ -44,6 +43,7 @@ class DecisionType(Enum):
     """裁定タイプ（後方互換）"""
     ADOPT_KAIGUN = "adopt_kaigun"
     ADOPT_RIKUGUN = "adopt_rikugun"
+    ADOPT_MERGED = "adopt_merged"
     INTEGRATE = "integrate"
     REMAND = "remand"
     REJECT = "reject"
@@ -53,9 +53,9 @@ class ArbitrationResult(Enum):
     """PCAサイクル裁定結果"""
     ADOPT_KAIGUN = "adopt_kaigun"      # 海軍案採択
     ADOPT_RIKUGUN = "adopt_rikugun"    # 陸軍案採択
+    ADOPT_MERGED = "adopt_merged"      # 折衷案採択
     MERGE = "merge"                     # 折衷（書記がマージ案作成）
     REJECT = "reject"                   # 却下（再提案へ）
-    EXECUTE_IMMEDIATE = "execute"       # 即実行
 
 
 @dataclass
@@ -160,11 +160,6 @@ class CouncilManager:
         self._print_banner(session)
         self._init_shoki()
 
-        if self.mode == CouncilMode.EXECUTE:
-            print("【即実行モード】会議をスキップして実行します。")
-            session.status = "executing"
-            return session
-
         session.proposal = await self._get_proposal(task)
         self._save_to_queue("proposal", task_id, session.proposal)
 
@@ -210,16 +205,8 @@ class CouncilManager:
             decision = await self._present_to_shogun(proposal, objection)
 
             # 分岐処理
+            # 分岐処理
             match decision.result:
-                case ArbitrationResult.EXECUTE_IMMEDIATE:
-                    print("\n⚔️ 即実行が裁定されました。")
-                    return {
-                        "status": "execute",
-                        "task_id": task_id,
-                        "proposal": decision.adopted_proposal or proposal,
-                        "iterations": self.state.iteration,
-                    }
-
                 case ArbitrationResult.ADOPT_KAIGUN | ArbitrationResult.ADOPT_RIKUGUN:
                     adopted = proposal if decision.result == ArbitrationResult.ADOPT_KAIGUN else objection
                     decision.adopted_proposal = adopted
@@ -248,25 +235,64 @@ class CouncilManager:
                         merged = await self.shoki.synthesize(
                             proposal, objection, decision.merge_instruction
                         )
-                        context = {"merged_proposal": merged, **task}
                     else:
                         merged = self._simple_merge(proposal, objection)
-                        context = {
-                            "merged_proposal": merged,
-                            **task,
-                        }
 
                     # ダッシュボードに折衷案を書き込む
                     try:
                         from gozen.dashboard import get_dashboard
                         dashboard = get_dashboard()
-                        merged_text = self._format_proposal(context.get("merged_proposal", {}))
+                        merged_text = self._format_proposal(merged)
                         await dashboard.merged_proposal_update(merged_text)
                     except Exception:
                         pass  # dashboard 書き込み失敗は処理を継続
 
-                    self.state.phase = "PROPOSE"
-                    self.state.iteration += 1
+                    # --- 折衷案への裁定 ---
+                    print("\n" + "=" * 60)
+                    print("👑 折衷案への裁定をお願いします")
+                    print("=" * 60)
+                    print(f"タイトル: {merged.get('title', '折衷案')}")
+                    print(f"サマリー: {merged.get('summary', 'N/A')}")
+                    
+                    print("\n選択肢:")
+                    print("  [1] 折衷案を採用（ADOPT_MERGED）")
+                    print("  [2] 折衷案を却下・再検討（REJECT）")
+                    
+                    choice = self._get_input("\n👑 裁定を入力 (1-2): ")
+
+                    if choice == "1":
+                        decision.result = ArbitrationResult.ADOPT_MERGED
+                        decision.adopted_proposal = merged
+                        self._save_to_queue("decision", task_id, {
+                            "result": decision.result.value,
+                            "adopted": decision.adopted_proposal,
+                            "iterations": self.state.iteration,
+                        })
+                        return {
+                            "status": "adopted",
+                            "result": decision.result.value,
+                            "task_id": task_id,
+                            "proposal": decision.adopted_proposal,
+                            "iterations": self.state.iteration,
+                        }
+                    else:
+                        reject_reason = self._get_input("却下理由（海軍へのフィードバック）: ")
+                        print(f"\n❌ 折衷案却下: {reject_reason}")
+                        
+                        self.state.rejection_history.append({
+                            "iteration": self.state.iteration,
+                            "kaigun_proposal": proposal,
+                            "rikugun_objection": objection,
+                            "merged_proposal": merged,
+                            "reject_reason": reject_reason,
+                        })
+                        self.state.phase = "REPROPOSE"
+                        self.state.iteration += 1
+                        context = {
+                            "rejection_history": self.state.rejection_history,
+                            "last_merged_proposal": merged,
+                            **task,
+                        }
 
                 case ArbitrationResult.REJECT:
                     print(f"\n❌ 却下: {decision.reject_reason}")
@@ -320,12 +346,11 @@ class CouncilManager:
         print("  [2] 陸軍案を採択（ADOPT_RIKUGUN）")
         print("  [3] 折衷案を作成（MERGE）")
         print("  [4] 却下・再提案（REJECT）")
-        print("  [5] 即実行（EXECUTE）")
-        print("  [6] 海軍案を採択 + 洗練要求")
-        print("  [7] 陸軍案を採択 + 洗練要求")
+        print("  [5] 海軍案を採択 + 洗練要求")
+        print("  [6] 陸軍案を採択 + 洗練要求")
 
         try:
-            choice = input("\n👑 裁定を入力 (1-7): ").strip()
+            choice = input("\n👑 裁定を入力 (1-6): ").strip()
         except EOFError:
             choice = "4"
 
@@ -357,11 +382,6 @@ class CouncilManager:
                     reject_reason=reject_reason,
                 )
             case "5":
-                return Decision(
-                    result=ArbitrationResult.EXECUTE_IMMEDIATE,
-                    adopted_proposal=proposal,
-                )
-            case "6":
                 reason = self._get_reason()
                 return Decision(
                     result=ArbitrationResult.ADOPT_KAIGUN,
@@ -369,7 +389,7 @@ class CouncilManager:
                     refine_requested=True,
                     reason=reason,
                 )
-            case "7":
+            case "6":
                 reason = self._get_reason()
                 return Decision(
                     result=ArbitrationResult.ADOPT_RIKUGUN,
@@ -759,7 +779,6 @@ class CouncilManager:
 
     def _print_banner(self, session: CouncilSession) -> None:
         mode_str = {
-            CouncilMode.EXECUTE: "即実行",
             CouncilMode.COUNCIL: "会議",
             CouncilMode.DRYRUN: "ドライラン",
         }
@@ -910,5 +929,5 @@ if __name__ == "__main__":
         "requirements": ["k3s", "MinIO", "自動化"],
     }
 
-    result = asyncio.run(run_council(test_task, mode="council", max_rounds=2))
+    result = asyncio.run(run_pca_council(test_task, max_iterations=2))
     print(f"\n最終結果: {result['status']}")

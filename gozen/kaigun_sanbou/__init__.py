@@ -79,7 +79,7 @@ class KaigunSanbou:
 
         # API呼び出しを試行
         try:
-            api_result = await self._call_api(mission, requirements)
+            api_result = await self._call_api(mission, requirements, task)
             await dashboard.unit_update("kaigun", "kaigun_sanbou", "main", "completed")
             return {
                 "type": "proposal",
@@ -101,7 +101,7 @@ class KaigunSanbou:
             await dashboard.unit_update("kaigun", "kaigun_sanbou", "main", "completed", "フォールバック")
             return self._fallback_proposal(mission, requirements, title)
 
-    async def _call_api(self, mission: str, requirements: list[str]) -> dict[str, Any]:
+    async def _call_api(self, mission: str, requirements: list[str], task: dict[str, Any]) -> dict[str, Any]:
         """APIを呼び出して提案を生成"""
         from gozen.api_client import get_client
         from pathlib import Path
@@ -118,11 +118,34 @@ class KaigunSanbou:
 
         req_str = "\n".join(f"- {r}" for r in requirements) if requirements else "- 未指定"
 
+        # 却下履歴の確認
+        rejection_context = ""
+        rejection_history = task.get("rejection_history", [])
+        if rejection_history:
+            last_rejection = rejection_history[-1]
+            reason = last_rejection.get("reject_reason", "理由不明")
+            merged = task.get("last_merged_proposal", {})
+            merged_summary = merged.get("summary", "") if merged else ""
+
+            rejection_context = (
+                "\n\n## ⚠️ 重要: 前回の提案は却下されました\n"
+                f"却下理由: {reason}\n"
+            )
+            if merged_summary:
+                rejection_context += f"却下された折衷案概要: {merged_summary}\n"
+            
+            rejection_context += (
+                "\n【修正指示】\n"
+                "前回の却下理由を真摯に受け止め、より現実的でコスト対効果の高い案を再構築してください。\n"
+                "理想を追求しつつも、実現可能性と運用コストを十分に考慮した「大人」な提案が求められます。\n"
+            )
+
         user_prompt = (
             f"{system_prompt}\n\n"
             "以下の任務に対する技術提案を作成してください。\n\n"
             f"## 任務\n{mission}\n\n"
-            f"## 要件\n{req_str}\n\n"
+            f"## 要件\n{req_str}"
+            f"{rejection_context}\n\n"
             "## 出力形式\n"
             "以下のJSON形式で回答してください。"
             "JSONのみを出力し、他のテキストは含めないでください。\n\n"

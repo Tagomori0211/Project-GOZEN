@@ -425,8 +425,79 @@ async def run_council(session_id: str) -> None:
                     continue
 
             else:  # choice == 4 or invalid
-                decision = {"approved": False, "adopted": None, "content": None}
-                break
+                # 却下 - 再提案ループ
+                state.phase = SessionPhase.PROPOSAL
+                await broadcast(session_id, {
+                    "type": "INFO",
+                    "from": "system",
+                    "content": "案が却下されました。海軍参謀による再提案を作成します（コスト・実現性重視）。",
+                })
+
+                # 却下履歴追加
+                if "rejection_history" not in task:
+                    task["rejection_history"] = []
+                
+                task["rejection_history"].append({
+                    "iteration": state.loop_count,
+                    "kaigun_proposal": current_proposal,
+                    "rikugun_objection": current_objection,
+                    "reject_reason": "全体的な見直しが必要（コスト・実現性）",
+                })
+
+                # 海軍再提案
+                await broadcast(session_id, {
+                    "type": "PHASE",
+                    "phase": "proposal",
+                    "status": "in_progress",
+                })
+                
+                current_proposal = await kaigun_create_proposal(task)
+                state.proposal = current_proposal
+
+                await broadcast(session_id, {
+                    "type": "PROPOSAL",
+                    "content": {
+                        "title": current_proposal.get("title", ""),
+                        "summary": current_proposal.get("summary", ""),
+                        "key_points": current_proposal.get("key_points", []),
+                    },
+                    "fullText": format_proposal(current_proposal),
+                })
+                
+                await broadcast(session_id, {
+                    "type": "PHASE",
+                    "phase": "proposal",
+                    "status": "completed",
+                })
+
+                # 陸軍再異議
+                state.phase = SessionPhase.OBJECTION
+                await broadcast(session_id, {
+                    "type": "PHASE",
+                    "phase": "objection",
+                    "status": "in_progress",
+                })
+
+                current_objection = await rikugun_create_objection(task, current_proposal)
+                state.objection = current_objection
+
+                await broadcast(session_id, {
+                    "type": "OBJECTION",
+                    "content": {
+                        "title": current_objection.get("title", ""),
+                        "summary": current_objection.get("summary", ""),
+                        "key_points": current_objection.get("key_points", []),
+                    },
+                    "fullText": format_proposal(current_objection),
+                })
+
+                await broadcast(session_id, {
+                    "type": "PHASE",
+                    "phase": "objection",
+                    "status": "completed",
+                })
+
+                continue
 
         if decision is None:
             decision = {"approved": False, "adopted": None, "content": None, "reason": "max_loops_reached"}
@@ -434,24 +505,6 @@ async def run_council(session_id: str) -> None:
         decision["timestamp"] = datetime.now().isoformat()
         decision["loop_count"] = state.loop_count
         state.decision = decision
-
-        # 実行モードの場合
-        if state.mode == "execute" and decision.get("approved"):
-            state.phase = SessionPhase.EXECUTION
-            await broadcast(session_id, {
-                "type": "PHASE",
-                "phase": "execution",
-                "status": "in_progress",
-            })
-
-            result = await execute_orders(decision, task, state.mode)
-            state.result = result
-
-            await broadcast(session_id, {
-                "type": "PHASE",
-                "phase": "execution",
-                "status": "completed",
-            })
 
         if decision.get("approved"):
             # --- 書記による要約 ---
@@ -529,8 +582,9 @@ async def validate_merged_proposal(
             f"## 陸軍の異議\n{objection.get('summary', 'N/A')}\n\n"
             f"## 書記の折衷案\n{merged.get('summary', 'N/A')}\n\n"
             "## 指示\n"
-            "折衷案の問題点を指摘し、改善案を提示してください。\n"
-            "海軍の理想を維持しつつ、陸軍の懸念に応える修正案を作成してください。\n\n"
+            "折衷案は却下されました。却下理由（主にコスト・実現性）を踏まえ、改善案を提示してください。\n"
+            "特に「現実的なコスト感覚」と「実現可能性」を重視してください。\n"
+            "海軍の理想を維持しつつも、陸軍の懸念（コスト・リソース）に十分配慮した「大人」な修正案を作成してください。\n\n"
             "## 出力形式\n"
             "以下のJSON形式で回答してください。\n\n"
             "```json\n"
@@ -616,35 +670,7 @@ async def integrate_proposals(
         }
 
 
-async def execute_orders(
-    decision: dict[str, Any],
-    task: dict[str, Any],
-    mode: str,
-) -> dict[str, Any]:
-    """実行部隊への指令"""
-    adopted = decision.get("adopted")
 
-    if adopted == "kaigun":
-        from gozen.kaigun_sanbou.teitoku import execute as teitoku_execute
-        return await teitoku_execute(decision, task, mode="sequential")
-
-    elif adopted == "rikugun":
-        from gozen.rikugun_sanbou.shikan import execute as shikan_execute
-        return await shikan_execute(decision, task, mode="sequential")
-
-    else:
-        from gozen.kaigun_sanbou.teitoku import execute as teitoku_execute
-        from gozen.rikugun_sanbou.shikan import execute as shikan_execute
-
-        kaigun_result, rikugun_result = await asyncio.gather(
-            teitoku_execute(decision, task, mode="sequential"),
-            shikan_execute(decision, task, mode="sequential"),
-        )
-
-        return {
-            "kaigun_result": kaigun_result,
-            "rikugun_result": rikugun_result,
-        }
 
 
 def format_proposal(proposal: dict[str, Any]) -> str:
