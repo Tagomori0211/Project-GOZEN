@@ -41,6 +41,6 @@ ls -l ../gozen/web/static/
 # 4. Restart Background Service
 echo "Restarting gozen service..."
 # sudoのパスワード入力を求められないよう、visudo等の設定が必要な場合もあるけ注意してね
-sudo systemctl restart gozen
+sudo /usr/bin/systemctl restart gozen
 
 echo "=== Deployment Completed Successfully ==="
