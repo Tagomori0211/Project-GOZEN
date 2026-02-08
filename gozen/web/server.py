@@ -195,7 +195,8 @@ async def broadcast(session_id: str, message: dict[str, Any]) -> None:
     for ws in connections[session_id]:
         try:
             await ws.send_json(message)
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG: Broadcast error: {e}")
             pass
 
 
@@ -326,6 +327,7 @@ async def run_council(session_id: str) -> None:
                     },
                     "fullText": format_proposal(merged_content),
                 })
+                await asyncio.sleep(0.5) # Wait for client to process
 
                 print("DEBUG: Broadcasting phase completed...")
                 await broadcast(session_id, {
@@ -333,6 +335,7 @@ async def run_council(session_id: str) -> None:
                     "phase": "merged",
                     "status": "completed",
                 })
+                await asyncio.sleep(0.5) # Wait for client to process
 
                 # --- 折衷案の採用/却下選択 ---
                 print("DEBUG: Setting phase to MERGE_DECISION...")

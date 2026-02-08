@@ -59,7 +59,14 @@ function CouncilPage() {
   const handleMessage = useCallback((message: WSServerMessage) => {
     switch (message.type) {
       case 'PHASE':
-        setPhase(message.phase)
+        // 判定待ち状態の時はフェーズ更新を無視する（上書き防止）
+        setPhase(prev => {
+          if (isAwaitingMergeDecision && message.phase === 'merged' && message.status === 'completed') {
+            return prev
+          }
+          return message.phase
+        })
+
         if (message.status === 'in_progress') {
           const phaseLabels: Record<string, string> = {
             proposal: '海軍参謀が提案を作成しています...',
