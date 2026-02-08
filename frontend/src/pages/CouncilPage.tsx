@@ -138,14 +138,19 @@ function CouncilPage() {
         break
 
       case 'AWAITING_MERGE_DECISION':
-        setMergeDecisionOptions(message.options)
-        setIsAwaitingMergeDecision(true)
-        setIsAwaitingDecision(false)
-        addMessage({
-          from: 'system',
-          type: 'info',
-          content: '折衷案の採用/却下を選択してください。',
-        })
+        {
+          setMergeDecisionOptions(message.options)
+          setIsAwaitingMergeDecision(true)
+          setIsAwaitingDecision(false)
+          // 明示的にフェーズを更新してパネル表示を確実にトリガーする
+          setPhase('merge_decision')
+
+          addMessage({
+            from: 'system',
+            type: 'info',
+            content: '折衷案の採用/却下を選択してください。',
+          })
+        }
         break
 
       case 'APPROVED_STAMP':
