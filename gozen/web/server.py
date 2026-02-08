@@ -105,6 +105,21 @@ def create_app() -> FastAPI:
             "error": state.error,
         }
 
+    @app.post("/api/shutdown")
+    async def shutdown() -> dict[str, str]:
+        """サーバー停止"""
+        import os
+        import signal
+        import threading
+        import time
+
+        def kill_server():
+            time.sleep(1)
+            os.kill(os.getpid(), signal.SIGTERM)
+
+        threading.Thread(target=kill_server).start()
+        return {"message": "Server shutting down..."}
+
     # --- WebSocket ---
 
     @app.websocket("/ws/council/{session_id}")

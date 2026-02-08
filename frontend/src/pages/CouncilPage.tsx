@@ -306,6 +306,22 @@ function CouncilPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                if (confirm('サーバーを終了しますか？\n終了後はポート8080が解放されます。')) {
+                  try {
+                    await fetch('/api/shutdown', { method: 'POST' })
+                    alert('サーバーを終了しました。タブを閉じてください。')
+                    window.close()
+                  } catch (e) {
+                    alert('終了エラー: ' + e)
+                  }
+                }
+              }}
+              className="px-3 py-1 text-xs bg-red-900/50 hover:bg-red-800 text-red-200 rounded border border-red-700 transition-colors mr-2"
+            >
+              終了
+            </button>
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
             <span className="text-slate-500 text-sm">
               {isConnected ? '接続中' : '切断'}
