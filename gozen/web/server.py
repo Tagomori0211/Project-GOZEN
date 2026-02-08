@@ -584,6 +584,8 @@ async def run_council(session_id: str) -> None:
         })
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         state.phase = SessionPhase.ERROR
         state.error = str(e)
         await broadcast(session_id, {

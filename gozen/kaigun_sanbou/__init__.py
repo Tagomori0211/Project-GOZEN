@@ -76,8 +76,11 @@ class KaigunSanbou:
         mission = task.get("mission", "")
         requirements = task.get("requirements", [])
         title = f"海軍提案: {_safe_truncate(mission)}"
-
         return await self._call_api(mission, requirements, task)
+        
+        # Debug
+        # print("⚠️ [海軍参謀] デバッグモード: APIスキップ")
+        # return self._fallback_proposal(mission, task.get("requirements", []), f"海軍提案: {_safe_truncate(mission)}")
 
 
 
