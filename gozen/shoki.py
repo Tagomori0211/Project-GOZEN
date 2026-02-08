@@ -262,7 +262,16 @@ gozen decide --task <TASK_ID> --action <ACTION>
             content = result.get("content", "")
 
             # Markdownコードブロックの除去
-            cleaned_content = content.replace("```yaml", "").replace("```", "").strip()
+            cleaned_content = content.replace("```yaml", "").replace("```json", "").replace("```", "").strip()
+            
+            # 先頭の "yaml" や "json" という単語を除去（LLMがたまに出力するため）
+            if cleaned_content.lower().startswith("yaml"):
+                cleaned_content = cleaned_content[4:].strip()
+            if cleaned_content.lower().startswith("json"):
+                cleaned_content = cleaned_content[4:].strip()
+
+            print(f"DEBUG: Shoki synthesize raw content: {content[:100]}...")
+            print(f"DEBUG: Shoki synthesize cleaned content: {cleaned_content[:100]}...")
 
             # YAML パース試行
             import yaml
@@ -270,12 +279,14 @@ gozen decide --task <TASK_ID> --action <ACTION>
                 parsed = yaml.safe_load(cleaned_content)
                 if isinstance(parsed, dict):
                     return parsed
-            except yaml.YAMLError:
+                print(f"DEBUG: Key points parsing failed (not a dict): {type(parsed)}")
+            except yaml.YAMLError as e:
+                print(f"DEBUG: YAML parse error: {e}")
                 pass
 
             # パースに失敗した場合、テキストとして返す
             return {
-                "title": "折衷案（書記起草）",
+                "title": "統合案（書記起草・パース予備）",
                 "summary": content[:200],
                 "raw_content": content,
                 "kaigun_elements": proposal.get("key_points", []),

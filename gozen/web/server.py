@@ -302,6 +302,7 @@ async def run_council(session_id: str) -> None:
                 decision = {"approved": True, "adopted": "rikugun", "content": current_objection}
                 break
             elif choice == 3:
+                print("DEBUG: Broadcasting MERGE_DECISION phase...")
                 # 統合案作成
                 state.phase = SessionPhase.MERGED
                 await broadcast(session_id, {
@@ -310,9 +311,12 @@ async def run_council(session_id: str) -> None:
                     "status": "in_progress",
                 })
 
+                print("DEBUG: Calling integrate_proposals...")
                 merged_content = await integrate_proposals(current_proposal, current_objection)
                 state.merged = merged_content
+                print(f"DEBUG: Integrated proposal created: {merged_content.get('title', 'No Title')}")
 
+                print("DEBUG: Broadcasting MERGED content...")
                 await broadcast(session_id, {
                     "type": "MERGED",
                     "content": {
@@ -323,6 +327,7 @@ async def run_council(session_id: str) -> None:
                     "fullText": format_proposal(merged_content),
                 })
 
+                print("DEBUG: Broadcasting phase completed...")
                 await broadcast(session_id, {
                     "type": "PHASE",
                     "phase": "merged",
@@ -330,7 +335,10 @@ async def run_council(session_id: str) -> None:
                 })
 
                 # --- 折衷案の採用/却下選択 ---
+                print("DEBUG: Setting phase to MERGE_DECISION...")
                 state.phase = SessionPhase.MERGE_DECISION
+                
+                print("DEBUG: Broadcasting AWAITING_MERGE_DECISION...")
                 await broadcast(session_id, {
                     "type": "AWAITING_MERGE_DECISION",
                     "options": [
@@ -338,6 +346,7 @@ async def run_council(session_id: str) -> None:
                         {"value": 2, "label": "却下（妥当性検証へ）"},
                     ],
                 })
+                print("DEBUG: Broadcast AWAITING_MERGE_DECISION sent.")
 
                 state.merge_decision_future = asyncio.get_event_loop().create_future()
                 merge_choice = await state.merge_decision_future
