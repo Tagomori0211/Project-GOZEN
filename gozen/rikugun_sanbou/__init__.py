@@ -76,9 +76,7 @@ class RikugunSanbou:
         mission = task.get("mission", "")
         title = f"陸軍異議: {_safe_truncate(mission)}"
 
-        # デバッグ: API呼び出しをスキップしてテンプレート応答を返す
-        print("⚠️ [陸軍参謀] デバッグモード: APIスキップ")
-        return self._fallback_objection(mission, task, proposal, title)
+        return await self._call_api(mission, task, proposal)
 
 
 

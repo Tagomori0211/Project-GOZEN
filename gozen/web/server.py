@@ -572,8 +572,6 @@ async def validate_merged_proposal(
 ) -> dict[str, Any]:
     """海軍参謀による折衷案の妥当性検証"""
     try:
-        # デバッグ: 強制的にフォールバック
-        raise Exception("Debug mode")
         from gozen.api_client import get_client
 
         client = get_client("kaigun_sanbou")
@@ -657,8 +655,6 @@ async def integrate_proposals(
 ) -> dict[str, Any]:
     """提案と異議を統合"""
     try:
-        # デバッグ: 強制的にフォールバック
-        raise Exception("Debug mode")
         from gozen.shoki import Shoki, ShokiConfig
         from gozen.config import get_rank_config
 

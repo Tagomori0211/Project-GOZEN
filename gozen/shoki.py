@@ -294,9 +294,6 @@ gozen decide --task <TASK_ID> --action <ACTION>
     async def summarize_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
         """裁定結果を構造化データとして返却"""
         try:
-            # デバッグ: 強制的にフォールバックさせる
-            raise Exception("Debug mode: Force fallback for UI verification")
-
             from gozen.api_client import get_client
             client = get_client("shoki")
 

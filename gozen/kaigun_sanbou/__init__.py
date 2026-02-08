@@ -77,9 +77,7 @@ class KaigunSanbou:
         requirements = task.get("requirements", [])
         title = f"海軍提案: {_safe_truncate(mission)}"
 
-        # デバッグ: API呼び出しをスキップしてテンプレート応答を返す
-        print("⚠️ [海軍参謀] デバッグモード: APIスキップ")
-        return self._fallback_proposal(mission, requirements, title)
+        return await self._call_api(mission, requirements, task)
 
 
 
