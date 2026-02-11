@@ -195,7 +195,7 @@ _RANK_ALIASES: dict[str, str] = {}
 # Server Configuration
 # ============================================================
 
-SERVER_HOST = "0.0.0.0"
+SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 9000
 
 

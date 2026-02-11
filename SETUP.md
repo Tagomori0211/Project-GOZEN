@@ -107,7 +107,7 @@ APIキーがない場合でも、検証スクリプトは `security_level="mock"
 
 ```bash
 # サーバー起動 (ホットリロード有効: --reload)
-uvicorn gozen.server:app --host 0.0.0.0 --port 9000 --reload
+uvicorn gozen.server:app --host 127.0.0.1 --port 9000 --reload
 ```
 
 ## 6. 動作確認

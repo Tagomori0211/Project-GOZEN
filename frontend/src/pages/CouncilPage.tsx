@@ -313,7 +313,7 @@ function CouncilPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={async () => {
-                if (confirm('サーバーを終了しますか？\n終了後はポート8080が解放されます。')) {
+                if (confirm('サーバーを終了しますか？\n終了後はポート9000が解放されます。')) {
                   try {
                     await fetch('/api/shutdown', { method: 'POST' })
                     alert('サーバーを終了しました。タブを閉じてください。')
