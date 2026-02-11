@@ -70,7 +70,18 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 4. 環境変数の設定
+## 4. フロントエンドのビルド
+
+WebUIを使用するには、フロントエンドアセットのビルドが必要です。
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+## 5. 環境変数の設定
 
 `.env` ファイルを作成し、必要な設定を行います。
 

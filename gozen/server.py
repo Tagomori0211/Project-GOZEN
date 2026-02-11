@@ -127,6 +127,29 @@ app.add_middleware(
 )
 
 # ============================================================
+# Static Files & Web UI
+# ============================================================
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+# Static directory path
+STATIC_DIR = Path(__file__).parent / "web" / "static"
+
+# Mount /assets if it exists
+if (STATIC_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")
+
+@app.get("/")
+async def serve_spa():
+    """Serve the Web UI."""
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return {"message": "Web UI not found. Please run 'npm run build' in frontend directory."}
+
+# ============================================================
 # API Endpoints
 # ============================================================
 
