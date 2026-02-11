@@ -73,6 +73,31 @@ class Shoki:
         self._refinement_records.append(record)
         await self._update_dashboard()
 
+    async def record_pre_mortem(
+        self,
+        session_id: str,
+        adopted_by: str,
+        kaigun_analysis: dict[str, Any],
+        rikugun_analysis: dict[str, Any],
+    ) -> None:
+        """Pre-Mortem分析結果を記録"""
+        
+        # ログ出力
+        logger.info(f"Pre-Mortem分析記録: Session={session_id}, Adopted={adopted_by}")
+        logger.info(f"海軍分析: {len(kaigun_analysis.get('failure_scenarios', []))}件の失敗シナリオ")
+        logger.info(f"陸軍分析: {len(rikugun_analysis.get('failure_scenarios', []))}件の失敗シナリオ")
+
+        # 構造化記録としての保存（dashboard.mdへの反映は現時点では実装不要、ログと内部状態への追加のみ）
+        record = {
+            "type": "pre_mortem",
+            "session_id": session_id,
+            "timestamp": datetime.now().isoformat(),
+            "adopted_by": adopted_by,
+            "kaigun_analysis": kaigun_analysis,
+            "rikugun_analysis": rikugun_analysis,
+        }
+        self.records.append(record)
+
     async def synthesize(
         self,
         proposal: dict[str, Any],

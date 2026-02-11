@@ -1,6 +1,7 @@
 import type { ChatMessage as ChatMessageType } from '../types/council'
 import ProposalCard from './ProposalCard'
 import OfficialDocument from './OfficialDocument'
+import PreMortemPanel from './PreMortemPanel'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -104,6 +105,10 @@ function ChatMessage({ message }: ChatMessageProps) {
           <div className="flex items-center gap-3 text-slate-300 p-4">
             <span>{typeof content === 'string' ? content : ''}</span>
             <div className={`animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full ${from === 'kaigun' ? 'text-blue-400' : from === 'rikugun' ? 'text-green-400' : 'text-slate-400'}`} />
+          </div>
+        ) : type === 'pre_mortem' ? (
+          <div className="w-full">
+            <PreMortemPanel data={content as any} />
           </div>
         ) : typeof content === 'object' && content !== null && ('title' in content || 'summary' in content || 'key_points' in content) ? (
           <div className="p-4">

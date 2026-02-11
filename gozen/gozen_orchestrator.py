@@ -205,16 +205,82 @@ class GozenOrchestrator:
                 
                 if choice == 1: # Adopt Kaigun
                     yield {"type": "decision", "from": "genshu", "content": "裁定: 海軍案を採択"}
-                    async for event in self._finalize_session(session_id, kaigun_proposal):
-                        yield event
-                    yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "kaigun"}}
-                    return
+                    
+                    # --- Pre-Mortem ---
+                    yield {"type": "PHASE", "phase": "pre_mortem", "status": "in_progress"}
+                    yield {"type": "info", "from": "shoki", "content": "これより Pre-Mortem (事前検死) 分析を開始します..."}
+                    
+                    pre_mortem = await self.step_pre_mortem(
+                        session_id, 
+                        adopted_proposal=kaigun_proposal, 
+                        opposing_proposal=rikugun_objection, 
+                        adopted_by="海軍",
+                        security_level=security_level
+                    )
+                    yield {"type": "PRE_MORTEM", "content": pre_mortem}
+                    
+                    yield {
+                        "type": "AWAITING_PREMORTEM_DECISION",
+                        "options": [
+                            {"value": 1, "label": "リスクを受容して採択", "type": "proceed"},
+                            {"value": 2, "label": "再審議に戻る", "type": "reconsider"},
+                        ]
+                    }
+                    
+                    state.current_decision_future = asyncio.get_running_loop().create_future()
+                    pm_choice = await state.current_decision_future
+                    state.current_decision_future = None
+                    
+                    if pm_choice == 1:
+                        async for event in self._finalize_session(session_id, kaigun_proposal):
+                            yield event
+                        yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "kaigun"}}
+                        return
+                    else:
+                        yield {"type": "info", "from": "system", "content": "リスク懸念により再審議を行います。"}
+                        kaigun_proposal = None
+                        rikugun_objection = None
+                        state.round += 1
+                        continue
                 elif choice == 2: # Adopt Rikugun
                     yield {"type": "decision", "from": "genshu", "content": "裁定: 陸軍案を採択"}
-                    async for event in self._finalize_session(session_id, rikugun_objection):
-                        yield event
-                    yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "rikugun"}}
-                    return
+                    
+                    # --- Pre-Mortem ---
+                    yield {"type": "PHASE", "phase": "pre_mortem", "status": "in_progress"}
+                    yield {"type": "info", "from": "shoki", "content": "これより Pre-Mortem (事前検死) 分析を開始します..."}
+                    
+                    pre_mortem = await self.step_pre_mortem(
+                        session_id, 
+                        adopted_proposal=rikugun_objection, 
+                        opposing_proposal=kaigun_proposal, 
+                        adopted_by="陸軍",
+                        security_level=security_level
+                    )
+                    yield {"type": "PRE_MORTEM", "content": pre_mortem}
+                    
+                    yield {
+                        "type": "AWAITING_PREMORTEM_DECISION",
+                        "options": [
+                            {"value": 1, "label": "リスクを受容して採択", "type": "proceed"},
+                            {"value": 2, "label": "再審議に戻る", "type": "reconsider"},
+                        ]
+                    }
+                    
+                    state.current_decision_future = asyncio.get_running_loop().create_future()
+                    pm_choice = await state.current_decision_future
+                    state.current_decision_future = None
+                    
+                    if pm_choice == 1:
+                        async for event in self._finalize_session(session_id, rikugun_objection):
+                            yield event
+                        yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "rikugun"}}
+                        return
+                    else:
+                        yield {"type": "info", "from": "system", "content": "リスク懸念により再審議を行います。"}
+                        kaigun_proposal = None
+                        rikugun_objection = None
+                        state.round += 1
+                        continue
                 elif choice == 3: # Integrate
                     yield {"type": "decision", "from": "genshu", "content": "裁定: 統合案を作成"}
                     yield {"type": "PHASE", "phase": "merged", "status": "in_progress"}
@@ -239,10 +305,42 @@ class GozenOrchestrator:
                     state.current_decision_future = None
                     
                     if merge_choice == 1:
-                        async for event in self._finalize_session(session_id, merged):
-                            yield event
-                        yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "integrated"}}
-                        return
+                        # --- Pre-Mortem (Integrated) ---
+                        yield {"type": "PHASE", "phase": "pre_mortem", "status": "in_progress"}
+                        yield {"type": "info", "from": "shoki", "content": "これより Pre-Mortem (事前検死) 分析を開始します..."}
+                        
+                        pre_mortem = await self.step_pre_mortem(
+                            session_id, 
+                            adopted_proposal=merged, 
+                            opposing_proposal=kaigun_proposal, 
+                            adopted_by="折衷",
+                            security_level=security_level
+                        )
+                        yield {"type": "PRE_MORTEM", "content": pre_mortem}
+                        
+                        yield {
+                            "type": "AWAITING_PREMORTEM_DECISION",
+                            "options": [
+                                {"value": 1, "label": "リスクを受容して採択", "type": "proceed"},
+                                {"value": 2, "label": "再審議に戻る", "type": "reconsider"},
+                            ]
+                        }
+                        
+                        state.current_decision_future = asyncio.get_running_loop().create_future()
+                        pm_choice = await state.current_decision_future
+                        state.current_decision_future = None
+                        
+                        if pm_choice == 1:
+                            async for event in self._finalize_session(session_id, merged):
+                                yield event
+                            yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "integrated"}}
+                            return
+                        else:
+                            yield {"type": "info", "from": "system", "content": "リスク懸念により再審議を行います。"}
+                            kaigun_proposal = None
+                            rikugun_objection = None
+                            state.round += 1
+                            continue
                     else:
                         # --- Validation Phase (New in Phase 22) ---
                         yield {"type": "PHASE", "phase": "validation", "status": "in_progress"}
@@ -281,6 +379,115 @@ class GozenOrchestrator:
 
         except Exception as e:
             yield {"type": "ERROR", "message": f"Orchestration Error: {str(e)}"}
+
+    async def step_pre_mortem(
+        self,
+        session_id: str,
+        adopted_proposal: dict[str, Any],
+        opposing_proposal: dict[str, Any],
+        adopted_by: str,
+        security_level: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Pre-Mortem (事前検死) 分析を実行"""
+        print(f"\n💀 [Pre-Mortem] 6ヶ月後の失敗分析開始: {session_id} (Adopted: {adopted_by})")
+        
+        from gozen.api_client import get_client
+        from gozen.utils.json_parser import parse_llm_json
+        
+        sl = security_level if security_level is not None else self.security_level
+        kaigun_client = get_client("kaigun_sanbou", security_level=sl)
+        rikugun_client = get_client("rikugun_sanbou", security_level=sl)
+        
+        adopted_summary = adopted_proposal.get("summary", "N/A")
+        adopted_points = ", ".join(adopted_proposal.get("key_points", []))
+        opposing_summary = opposing_proposal.get("summary", "N/A") if opposing_proposal else "特になし"
+        
+        # 海軍向けプロンプト
+        kaigun_prompt = (
+            "# Pre-Mortem（事前検死）分析\n\n"
+            "## 前提\n"
+            "以下の案が御前会議で採択されようとしている。\n"
+            "しかし、**6ヶ月後にこの決定が完全に失敗した**と仮定せよ。\n\n"
+            f"## 採択予定案（{adopted_by}）\n"
+            f"概要: {adopted_summary}\n"
+            f"要点: {adopted_points}\n\n"
+            f"## 不採択案の主張\n"
+            f"概要: {opposing_summary}\n\n"
+            "## 指示\n"
+            "海軍参謀として、この採択案の失敗シナリオを分析せよ。\n"
+            "**自案であっても容赦なく弱点を指摘せよ。**\n"
+            "「理想の設計が現実に負ける」パターンに特に注意すること。\n\n"
+            "## 出力形式\n"
+            "必ず以下のJSON形式で回答せよ。\n"
+            "```json\n"
+            "{\n"
+            '  "failure_scenarios": [\n'
+            '    {"cause": "失敗原因（具体的に）", "probability": "high/medium/low", "impact": "致命的/重大/軽微"}\n'
+            "  ],\n"
+            '  "blind_spots": ["見落とされている前提1", "見落とされている前提2"],\n'
+            '  "mitigation": ["失敗を防ぐための具体的対策1", "対策2"]\n'
+            "}\n"
+            "```"
+        )
+        
+        # 陸軍向けプロンプト
+        rikugun_prompt = (
+            "# Pre-Mortem（事前検死）分析\n\n"
+            "## 前提\n"
+            "以下の案が御前会議で採択されようとしている。\n"
+            "しかし、**6ヶ月後にこの決定が完全に失敗した**と仮定せよ。\n\n"
+            f"## 採択予定案（{adopted_by}）\n"
+            f"概要: {adopted_summary}\n"
+            f"要点: {adopted_points}\n\n"
+            f"## 不採択案の主張\n"
+            f"概要: {opposing_summary}\n\n"
+            "## 指示\n"
+            "陸軍参謀として、この採択案の失敗シナリオを分析せよ。\n"
+            "**自案であっても容赦なく弱点を指摘せよ。**\n"
+            "運用・コスト・人的リソースの観点から、現場で何が起きうるかを具体的に述べよ。\n\n"
+            "## 出力形式\n"
+            "必ず以下のJSON形式で回答せよ。\n"
+            "```json\n"
+            "{\n"
+            '  "failure_scenarios": [\n'
+            '    {"cause": "失敗原因", "probability": "high/medium/low", "impact": "致命的/重大/軽微"}\n'
+            "  ],\n"
+            '  "blind_spots": ["見落とされている前提"],\n'
+            '  "mitigation": ["緩和策"]\n'
+            "}\n"
+            "```"
+        )
+        
+        # 並列実行
+        try:
+            kaigun_res, rikugun_res = await asyncio.gather(
+                kaigun_client.call(kaigun_prompt),
+                rikugun_client.call(rikugun_prompt)
+            )
+            
+            kaigun_analysis = parse_llm_json(kaigun_res.get("content", "")) or {}
+            rikugun_analysis = parse_llm_json(rikugun_res.get("content", "")) or {}
+            
+        except Exception as e:
+            print(f"⚠️ Pre-Mortem分析エラー: {e}")
+            kaigun_analysis = {"failure_scenarios": [{"cause": f"Analysis Failed: {e}", "probability": "high", "impact": "minor"}]}
+            rikugun_analysis = {}
+
+        # 書記記録
+        await self.shoki.record_pre_mortem(session_id, adopted_by, kaigun_analysis, rikugun_analysis)
+        
+        # 結果構築
+        result = {
+            "session_id": session_id,
+            "adopted_by": adopted_by,
+            "timestamp": datetime.now().isoformat(),
+            "kaigun_analysis": kaigun_analysis,
+            "rikugun_analysis": rikugun_analysis,
+        }
+        
+        self._save_to_queue("decision", f"{session_id}_pre_mortem", result)
+        print(f"✅ [Pre-Mortem] 分析完了・保存")
+        return result
 
     async def _finalize_session(self, session_id: str, adopted_proposal: dict[str, Any]):
         """通達・公文書化"""

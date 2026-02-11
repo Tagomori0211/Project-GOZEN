@@ -175,7 +175,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 # Trigger the async runner
                 asyncio.create_task(_orchestration_runner(session_id, mission))
             
-            elif msg_type == "DECISION" or msg_type == "MERGE_DECISION":
+            elif msg_type == "DECISION" or msg_type == "MERGE_DECISION" or msg_type == "PREMORTEM_DECISION":
                 # Handle decisions sent via WebSocket as well
                 choice = data.get("choice")
                 state = orchestrator.sessions.get(session_id)

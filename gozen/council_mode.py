@@ -26,6 +26,7 @@ class SessionPhase(Enum):
     INTEGRATION = "integration"
     MERGED = "merged"
     DECISION = "decision"
+    PRE_MORTEM = "pre_mortem"
     VALIDATION = "validation"
     COMPLETE = "complete"
 

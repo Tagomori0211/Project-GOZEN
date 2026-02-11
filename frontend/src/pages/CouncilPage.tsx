@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { useWebSocket } from '../hooks/useWebSocket'
 import ChatMessage from '../components/ChatMessage'
 import DecisionPanel from '../components/DecisionPanel'
+import PreMortemPanel from '../components/PreMortemPanel'
 import StatusTree from '../components/StatusTree'
 import ApprovedStamp from '../components/ApprovedStamp'
 import type {
@@ -11,6 +12,7 @@ import type {
   SessionPhase,
   CouncilMode,
   WSServerMessage,
+  PreMortemData,
 } from '../types/council'
 
 function CouncilPage() {
@@ -30,6 +32,11 @@ function CouncilPage() {
   const [isComplete, setIsComplete] = useState(false)
   const [result, setResult] = useState<{ approved: boolean; adopted: string | null; loop_count?: number } | null>(null)
   const [loopCount, setLoopCount] = useState(1)
+
+  // Pre-Mortem State
+  const [isAwaitingPreMortemDecision, setIsAwaitingPreMortemDecision] = useState(false)
+  const [preMortemOptions, setPreMortemOptions] = useState<DecisionOption[]>([])
+  const [currentPreMortemData, setCurrentPreMortemData] = useState<PreMortemData | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasStarted = useRef(false)
@@ -164,10 +171,22 @@ function CouncilPage() {
         })
         break
 
+      case 'PRE_MORTEM':
+        setCurrentPreMortemData(message.content)
+        setMessages(prev => [...prev, {
+          from: 'shoki',
+          type: 'pre_mortem',
+          content: message.content,
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date(),
+        }])
+        break
+
       case 'AWAITING_DECISION':
         setDecisionOptions(message.options)
         setIsAwaitingDecision(true)
         setIsAwaitingMergeDecision(false)
+        setIsAwaitingPreMortemDecision(false)
         if (message.loopCount) {
           setLoopCount(message.loopCount)
         }
@@ -185,6 +204,7 @@ function CouncilPage() {
           setMergeDecisionOptions(message.options)
           setIsAwaitingMergeDecision(true)
           setIsAwaitingDecision(false)
+          setIsAwaitingPreMortemDecision(false)
           // 明示的にフェーズを更新してパネル表示を確実にトリガーする
           setPhase('merge_decision')
 
@@ -196,9 +216,22 @@ function CouncilPage() {
         }
         break
 
+      case 'AWAITING_PREMORTEM_DECISION':
+        setPreMortemOptions(message.options)
+        setIsAwaitingPreMortemDecision(true)
+        setIsAwaitingDecision(false)
+        setIsAwaitingMergeDecision(false)
+        addMessage({
+          from: 'system',
+          type: 'info',
+          content: 'リスクを受容するか、再審議に戻るかを選択してください。',
+        })
+        break
+
       case 'APPROVED_STAMP':
         setShowApprovedStamp(true)
         setIsAwaitingMergeDecision(false)
+        setIsAwaitingPreMortemDecision(false)
         break
 
       case 'INFO':
@@ -247,6 +280,7 @@ function CouncilPage() {
         setIsComplete(true)
         setIsAwaitingDecision(false)
         setIsAwaitingMergeDecision(false)
+        setIsAwaitingPreMortemDecision(false)
         setResult(message.result)
 
         const resultLabels: Record<string, string> = {
@@ -355,6 +389,23 @@ function CouncilPage() {
       from: 'genshu',
       type: 'decision',
       content: `裁定: ${choiceLabels[choice] || '不明'}`,
+    })
+  }
+
+  // Pre-Mortem 決定送信
+  const handlePreMortemDecision = (choice: number) => {
+    send({ type: 'PREMORTEM_DECISION', choice })
+    setIsAwaitingPreMortemDecision(false)
+
+    const choiceLabels: Record<number, string> = {
+      1: 'リスクを受容して採択',
+      2: '再審議に戻る',
+    }
+
+    addMessage({
+      from: 'genshu',
+      type: 'decision',
+      content: `決断: ${choiceLabels[choice] || '不明'}`,
     })
   }
 
@@ -468,6 +519,19 @@ function CouncilPage() {
           onDecide={handleMergeDecision}
           mode="merge_decision"
         />
+      )}
+
+      {/* Pre-Mortem 決定パネル (Overlay) */}
+      {isAwaitingPreMortemDecision && currentPreMortemData && (
+        <div className="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <PreMortemPanel
+              data={currentPreMortemData}
+              options={preMortemOptions}
+              onDecide={handlePreMortemDecision}
+            />
+          </div>
+        </div>
       )}
 
       {/* 承認スタンプ */}

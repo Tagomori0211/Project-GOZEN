@@ -10,6 +10,7 @@ export type SessionPhase =
   | 'merge_decision'
   | 'validation'
   | 'decision'
+  | 'pre_mortem'
   | 'execution'
   | 'final_notification'
   | 'completed'
@@ -37,11 +38,31 @@ export interface DecreeData {
   adopted_type: string;
 }
 
+export interface PreMortemScenario {
+  cause: string;
+  probability: 'high' | 'medium' | 'low';
+  impact: '致命的' | '重大' | '軽微';
+}
+
+export interface PreMortemAnalysis {
+  failure_scenarios: PreMortemScenario[];
+  blind_spots: string[];
+  mitigation: string[];
+}
+
+export interface PreMortemData {
+  session_id: string;
+  adopted_by: string;
+  timestamp: string;
+  kaigun_analysis: PreMortemAnalysis;
+  rikugun_analysis: PreMortemAnalysis;
+}
+
 export interface ChatMessage {
   id: string;
   from: MessageFrom;
-  type: 'proposal' | 'objection' | 'merged' | 'validation' | 'decision' | 'info' | 'error' | 'decree' | 'loading';
-  content: Proposal | string | DecreeData;
+  type: 'proposal' | 'objection' | 'merged' | 'validation' | 'decision' | 'pre_mortem' | 'info' | 'error' | 'decree' | 'loading';
+  content: Proposal | string | DecreeData | PreMortemData;
   fullText?: string;
   timestamp: Date;
 }
@@ -124,6 +145,16 @@ export interface WSShokiSummaryMessage {
   content: string | DecreeData;
 }
 
+export interface WSPreMortemMessage {
+  type: 'PRE_MORTEM';
+  content: PreMortemData;
+}
+
+export interface WSAwaitingPreMortemDecisionMessage {
+  type: 'AWAITING_PREMORTEM_DECISION';
+  options: DecisionOption[];
+}
+
 export type WSServerMessage =
   | WSPhaseMessage
   | WSProposalMessage
@@ -132,6 +163,8 @@ export type WSServerMessage =
   | WSValidationMessage
   | WSAwaitingDecisionMessage
   | WSAwaitingMergeDecisionMessage
+  | WSAwaitingPreMortemDecisionMessage
+  | WSPreMortemMessage
   | WSApprovedStampMessage
   | WSShokiSummaryMessage
   | WSInfoMessage
@@ -156,4 +189,9 @@ export interface WSMergeDecisionMessage {
   choice: number;
 }
 
-export type WSClientMessage = WSStartMessage | WSDecisionMessage | WSMergeDecisionMessage;
+export interface WSPreMortemDecisionMessage {
+  type: 'PREMORTEM_DECISION';
+  choice: number;
+}
+
+export type WSClientMessage = WSStartMessage | WSDecisionMessage | WSMergeDecisionMessage | WSPreMortemDecisionMessage;
