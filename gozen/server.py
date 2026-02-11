@@ -118,10 +118,10 @@ async def _run_proposal_phase(session_id: str, task: Dict[str, Any]):
         await manager.broadcast(session_id, {
             "type": "AWAITING_DECISION",
             "options": [
-                {"id": 1, "label": "海軍案を採択", "type": "kaigun"},
-                {"id": 2, "label": "陸軍案を採択", "type": "rikugun"},
-                {"id": 3, "label": "折衷案を作成", "type": "integrate"},
-                {"id": 4, "label": "却下", "type": "reject"},
+                {"value": 1, "label": "海軍案を採択", "type": "kaigun"},
+                {"value": 2, "label": "陸軍案を採択", "type": "rikugun"},
+                {"value": 3, "label": "折衷案を作成", "type": "integrate"},
+                {"value": 4, "label": "却下", "type": "reject"},
             ]
         })
         
@@ -168,8 +168,8 @@ async def _run_integration_phase(session_id: str, instruction: str):
         await manager.broadcast(session_id, {
             "type": "AWAITING_MERGE_DECISION",
             "options": [
-                {"id": 1, "label": "折衷案を採用", "type": "adopt"},
-                {"id": 2, "label": "折衷案を却下", "type": "reject"},
+                {"value": 1, "label": "折衷案を採用", "type": "adopt"},
+                {"value": 2, "label": "折衷案を却下", "type": "reject"},
             ]
         })
         
@@ -434,11 +434,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 orchestrator = GozenOrchestrator(
                     default_mode="parallel",
                     plan="pro",
-                    council_mode="council",
-                    security_level="mock" # Force mock for now or pass from frontend? Frontend doesn't pass it yet.
-                    # TODO: Make security_level configurable from UI if needed. For now use Mock or Public.
-                    # The user's verification was successful with Mock. Let's use Mock by default for stability?
-                    # Or check config.
+                    council_mode="council"
                 )
                 _orchestrators[session_id] = orchestrator
                 
@@ -446,7 +442,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     "task_id": session_id,
                     "mission": mission,
                     "requirements": [],
-                    "security_level": "mock" # Defaulting to MOCK for safety/demo as per user request context implied ("fix connection errors")
+                    # security_level defaults to None -> behaves as configured in config.py (usually API)
                 }
                 _sessions[session_id]["mission"] = mission
                 _sessions[session_id]["task"] = task
