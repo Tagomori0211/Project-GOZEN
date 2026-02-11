@@ -67,23 +67,84 @@ class RikugunSanbou:
         self.philosophy = "現実・運用・制約適応"
         self._character = get_character("rikugun_sanbou")
 
-    async def create_objection(self, task: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
-        """海軍提案に対する異議を作成"""
+    async def create_proposal(self, task: dict[str, Any]) -> dict[str, Any]:
+        """陸軍独自の提案を作成（海軍提案とは独立）"""
+        sanbou = get_instance()
+        return await sanbou.create_own_proposal(task)
+
+    async def create_own_proposal(self, task: dict[str, Any]) -> dict[str, Any]:
+        """海軍とは独立した陸軍独自の提案"""
         from gozen.dashboard import get_dashboard
         dashboard = get_dashboard()
         await dashboard.unit_update("rikugun", "rikugun_sanbou", "main", "in_progress")
 
         mission = task.get("mission", "")
-        title = f"陸軍異議: {_safe_truncate(mission)}"
-        return await self._call_api(mission, task, proposal)
-
-        # Debug
-        # print("⚠️ [陸軍参謀] デバッグモード: APIスキップ")
-        # return self._fallback_objection(mission, task, proposal, f"陸軍異議: {_safe_truncate(mission)}")
+        return await self._call_proposal_api(mission, task)
 
 
+    async def create_objection(self, task: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
+        """海軍提案に対する異議を作成（後方互換用）"""
+        from gozen.dashboard import get_dashboard
+        dashboard = get_dashboard()
+        # ... (既存の処理)
+        return await self._call_api(task.get("mission", ""), task, proposal)
+
+
+    async def _call_proposal_api(self, mission: str, task: dict[str, Any]) -> dict[str, Any]:
+        """APIを呼び出して独自提案を生成"""
+        from gozen.api_client import get_client
+        client = get_client("rikugun_sanbou", security_level=task.get("security_level"))
+        
+        # 必要な情報を抽出
+        requirements = task.get("requirements", [])
+        req_str = "\n".join(f"- {r}" for r in requirements) if requirements else "- 未指定"
+
+        # ペルソナプロンプト読み込み
+        from pathlib import Path
+        prompt_file = Path(__file__).parent.parent.parent / "prompts" / "rikugun_sanbou.prompt"
+        if prompt_file.exists():
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                persona_prompt = f.read()
+        else:
+            persona_prompt = ""
+
+        prompt = (
+            f"{persona_prompt}\n\n"
+            "# 任務情報\n\n"
+            f"## 任務\n{mission}\n\n"
+            f"## 要件\n{req_str}\n\n"
+            "# 指示\n"
+            "上記の任務に対し、陸軍参謀として独自の作戦提案を作成してください。\n"
+            "海軍のような理想主義ではなく、現実性、コスト効率、運用負荷の低減を最優先した提案としてください。\n\n"
+            "## 出力形式\n"
+            "以下のJSON形式で回答してください。\n"
+            "JSONのみを出力し、他のテキストは含めないでください。\n\n"
+            "```json\n"
+            "{\n"
+            '  "title": "提案タイトル（陸軍流）",\n'
+            '  "summary": "提案の全体概要（陸軍参謀の口調で、300-500文字）",\n'
+            '  "approach": "アプローチ手法（Ansible/Docker Composeなど枯れた技術中心）",\n'
+            '  "cost_analysis": "概算コスト分析（具体的金額）",\n'
+            '  "key_points": ["要点1", "要点2", "要点3", "要点4"],\n'
+            '  "risk_assessment": "リスク評価と対策"\n'
+            "}\n"
+            "```"
+        )
+        
+        result = await client.call(prompt)
+        content = result.get("content", "")
+        
+        parsed = _parse_json_response(content)
+        if parsed:
+            # 必須フィールドの補完
+            parsed["from"] = "rikugun"
+            return parsed
+            
+        print("⚠️ [陸軍参謀] JSONパース失敗、テキスト応答をsummaryとして使用")
+        return {"summary": content, "from": "rikugun", "title": "陸軍提案（パース失敗）"}
 
     async def _call_api(
+    # ... (既存のメソッド名変更なし)
         self, mission: str, task: dict[str, Any], proposal: dict[str, Any]
     ) -> dict[str, Any]:
         """APIを呼び出して異議を生成"""
@@ -263,6 +324,12 @@ def get_instance() -> RikugunSanbou:
     if _instance is None:
         _instance = RikugunSanbou()
     return _instance
+
+
+async def create_proposal(task: dict[str, Any]) -> dict[str, Any]:
+    """提案を作成（モジュールレベル関数）"""
+    sanbou = get_instance()
+    return await sanbou.create_proposal(task)
 
 
 async def create_objection(task: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:

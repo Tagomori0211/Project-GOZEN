@@ -30,8 +30,9 @@ class ShokiConfig:
 class Shoki:
     """書記クラス - 中立の記録・要約・統合"""
 
-    def __init__(self, config: ShokiConfig) -> None:
+    def __init__(self, config: ShokiConfig, security_level: Optional[str] = None) -> None:
         self.config = config
+        self.security_level = security_level
         self.records: list[dict[str, Any]] = []
         self._refinement_records: list[dict[str, Any]] = []
 
@@ -81,6 +82,69 @@ class Shoki:
         """折衷案を作成"""
         merged = await self._call_llm_synthesize(proposal, objection, merge_instruction)
         return merged
+
+    async def create_official_document(
+        self,
+        notification: dict[str, Any],
+    ) -> dict[str, Any]:
+        """公文書を作成"""
+        try:
+            from gozen.api_client import get_client
+            client = get_client("shoki", security_level=self.security_level)
+            
+            adopted = notification.get("adopted", {})
+            session_id = notification.get("session_id", "UNKNOWN")
+            
+            prompt = f"""
+あなたは御前会議の書記官です。
+以下の決定事項に基づき、正式な「御前会議決定公文書」を作成してください。
+フォーマットはMarkdownとYAMLのハイブリッド形式とします。
+
+【決定事項】
+セッションID: {session_id}
+採択案: {adopted.get('title', 'N/A')}
+概要: {adopted.get('summary', 'N/A')}
+要点: {', '.join(adopted.get('key_points', []))}
+決定日時: {notification.get('notified_at', datetime.now().isoformat())}
+
+【出力形式】
+JSON形式で出力してください:
+{{
+  "markdown_content": "# 御前会議 決定公文書\\n\\n...",
+  "yaml_content": {{ ...構造化データ... }},
+  "filename": "{session_id}_decision.md"
+}}
+"""
+            result = await client.call(prompt)
+            content = result.get("content", "")
+            
+            # JSONパース（簡易）
+            import json
+            import re
+            
+            json_str = content
+            if "```json" in content:
+                match = re.search(r"```json(.*?)```", content, re.DOTALL)
+                if match:
+                    json_str = match.group(1)
+            
+            try:
+                parsed = json.loads(json_str.strip())
+                return parsed
+            except json.JSONDecodeError:
+                return {
+                    "markdown_content": f"# 御前会議 決定公文書\n\nパース失敗\n\n{content}",
+                    "yaml_content": notification,
+                    "filename": f"{session_id}_decision_fallback.md"
+                }
+                
+        except Exception as e:
+            logger.error(f"公文書作成失敗: {e}")
+            return {
+                "markdown_content": f"# 御前会議 決定公文書 (System Error)\n\nError: {str(e)}",
+                "yaml_content": notification,
+                "filename": f"{session_id}_error.md"
+            }
 
     async def generate_escalation_report(
         self,
@@ -237,7 +301,7 @@ gozen decide --task <TASK_ID> --action <ACTION>
         """LLMを使用して統合案を生成"""
         try:
             from gozen.api_client import get_client
-            client = get_client("shoki")
+            client = get_client("shoki", security_level=self.security_level)
 
             prompt = f"""以下の海軍提案と陸軍異議を統合し、折衷案を作成せよ。
 
@@ -306,7 +370,7 @@ gozen decide --task <TASK_ID> --action <ACTION>
         """裁定結果を構造化データとして返却"""
         try:
             from gozen.api_client import get_client
-            client = get_client("shoki")
+            client = get_client("shoki", security_level=self.security_level)
 
             adopted_content = decision.get("content", {})
             adopted_type = decision.get("adopted", "unknown")

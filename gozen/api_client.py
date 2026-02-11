@@ -170,12 +170,19 @@ def calculate_delay(retry_count: int, config: RetryConfig) -> float:
 # 抽象基底クラス
 # ============================================================
 
+from gozen.config import SecurityLevel
+
 class BaseAPIClient(ABC):
     """API クライアント基底クラス"""
 
-    def __init__(self, rank: str, retry_config: Optional[RetryConfig] = None) -> None:
+    def __init__(
+        self,
+        rank: str,
+        security_level: Optional[SecurityLevel] = None,
+        retry_config: Optional[RetryConfig] = None
+    ) -> None:
         self.rank = rank
-        self.config: RankConfig = get_rank_config(rank)
+        self.config: RankConfig = get_rank_config(rank, security_level)
         self.retry_config = retry_config or RetryConfig()
         self.tracker = get_cost_tracker()
 
@@ -620,18 +627,73 @@ class OllamaClient(BaseAPIClient):
 
 
 # ============================================================
+# Mock クライアント (検証用)
+# ============================================================
+
+class MockClient(BaseAPIClient):
+    """Mock クライアント（検証用）"""
+
+    async def _call_api(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
+        # ランダムな応答を生成
+        responses = [
+            "承知いたしました。提案を作成します。",
+            "異議あり！その方針にはリスクがあります。",
+            "了解。ドキュメントをまとめます。",
+            "これはモックの応答です。",
+        ]
+        
+        # プロンプトの内容に応じて少し変化させる（簡易）
+        content = ""
+        if "提案" in prompt:
+            content = "【海軍提案】\nクラウドネイティブな構成を推奨します。\n- k8s使用\n- ArgoCD導入"
+        elif "異議" in prompt:
+            content = "【陸軍異議】\n運用コストが高すぎます。VMベースで十分です。"
+        elif "公文書" in prompt:
+            content = "# 公文書\n\n本件、海軍案を採択する。"
+        else:
+            content = random.choice(responses)
+
+        await asyncio.sleep(0.5) # 擬似レイテンシ
+
+        return {
+            "content": content,
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 100,
+            },
+            "model": "mock-model",
+        }
+
+
+# ============================================================
 # クライアントファクトリ
 # ============================================================
 
-def get_client(rank: str, retry_config: Optional[RetryConfig] = None) -> BaseAPIClient:
+    Any
+
+def get_client(
+    rank: str,
+    security_level: Optional[str] = None,
+    retry_config: Optional[RetryConfig] = None,
+) -> BaseAPIClient:
     """階級に応じたAPIクライアントを取得"""
-    config = get_rank_config(rank)
+    from gozen.config import SecurityLevel
+    
+    sl_enum = None
+    if security_level:
+        try:
+            sl_enum = SecurityLevel(security_level)
+        except ValueError:
+            pass
+
+    config = get_rank_config(rank, sl_enum)
 
     client_map: dict[InvocationMethod, type[BaseAPIClient]] = {
         InvocationMethod.CLAUDE_CODE_CLI: ClaudeCodeClient,
         InvocationMethod.ANTHROPIC_API: AnthropicClient,
         InvocationMethod.GEMINI_API: GeminiClient,
         InvocationMethod.LOCAL_LLM: OllamaClient,
+        InvocationMethod.MOCK: MockClient,
     }
 
     client_cls = client_map.get(config.method)
@@ -639,7 +701,7 @@ def get_client(rank: str, retry_config: Optional[RetryConfig] = None) -> BaseAPI
         raise ValueError(f"Unknown method: {config.method}")
 
     print(f"  [{rank}] {client_cls.__name__} (model={config.model}, method={config.method.value})")
-    return client_cls(rank, retry_config)
+    return client_cls(rank, sl_enum, retry_config)
 
 
 # ============================================================

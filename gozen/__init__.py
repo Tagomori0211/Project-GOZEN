@@ -37,7 +37,6 @@ def _load_dotenv() -> None:
 
     except ImportError:
         # python-dotenv がインストールされていない場合
-        # 環境変数が直接設定されていることを期待
         pass
 
 # モジュール読み込み時に自動実行
@@ -70,12 +69,9 @@ from gozen.character import (
 
 from gozen.council_mode import (
     ArbitrationResult,
-    CouncilManager,
     CouncilMode,
-    PCAState,
-    resolve_deadlock,
-    run_council,
-    run_pca_council,
+    CouncilSessionState,
+    AdoptionJudgment,
 )
 
 from gozen.api_client import (
@@ -114,11 +110,8 @@ __all__ = [
     # council_mode
     "ArbitrationResult",
     "CouncilMode",
-    "CouncilManager",
-    "PCAState",
-    "run_council",
-    "run_pca_council",
-    "resolve_deadlock",
+    "CouncilSessionState",
+    "AdoptionJudgment",
     # api_client
     "get_client",
     "get_cost_tracker",

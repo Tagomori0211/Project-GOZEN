@@ -89,7 +89,7 @@ class KaigunSanbou:
         from gozen.api_client import get_client
         from pathlib import Path
 
-        client = get_client("kaigun_sanbou")
+        client = get_client("kaigun_sanbou", security_level=task.get("security_level"))
 
         # ペルソナプロンプトを読み込む
         prompt_file = Path(__file__).parent.parent.parent / "prompts" / "kaigun_sanbou.prompt"

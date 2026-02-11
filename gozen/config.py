@@ -33,12 +33,14 @@ class InvocationMethod(Enum):
     ANTHROPIC_API = "anthropic_api"
     GEMINI_API = "gemini_api"
     LOCAL_LLM = "local_llm"
+    MOCK = "mock"
 
 
 class SecurityLevel(Enum):
     """セキュリティレベル"""
     PUBLIC = "public"              # API許可
     CONFIDENTIAL = "confidential"  # オンプレ必須
+    MOCK = "mock"                  # モック（検証用）
 
 
 class InferenceBackend(Enum):
@@ -46,6 +48,7 @@ class InferenceBackend(Enum):
     CLAUDE_API = "claude_api"
     GEMINI_API = "gemini_api"
     OLLAMA_LOCAL = "ollama_local"
+    MOCK = "mock"
 
 
 # ============================================================
@@ -56,12 +59,14 @@ _BACKEND_TO_METHOD: dict[InferenceBackend, InvocationMethod] = {
     InferenceBackend.CLAUDE_API: InvocationMethod.ANTHROPIC_API,
     InferenceBackend.GEMINI_API: InvocationMethod.GEMINI_API,
     InferenceBackend.OLLAMA_LOCAL: InvocationMethod.LOCAL_LLM,
+    InferenceBackend.MOCK: InvocationMethod.MOCK,
 }
 
 _BACKEND_TO_BILLING: dict[InferenceBackend, BillingType] = {
     InferenceBackend.CLAUDE_API: BillingType.API,
     InferenceBackend.GEMINI_API: BillingType.API,
     InferenceBackend.OLLAMA_LOCAL: BillingType.LOCAL,
+    InferenceBackend.MOCK: BillingType.LOCAL,
 }
 
 
@@ -163,6 +168,11 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
             backend=InferenceBackend.OLLAMA_LOCAL,
         ),
     },
+    SecurityLevel.MOCK: {
+        "kaigun_sanbou": _rc("海軍参謀", "Naval Staff", Branch.KAIGUN, "mock-model", InferenceBackend.MOCK),
+        "rikugun_sanbou": _rc("陸軍参謀", "Army Staff", Branch.RIKUGUN, "mock-model", InferenceBackend.MOCK),
+        "shoki": _rc("書記", "Clerk", Branch.KAIGUN, "mock-model", InferenceBackend.MOCK),
+    },
 }
 
 
@@ -179,6 +189,14 @@ RANK_CONFIG: dict[str, RankConfig] = {
 
 # 階級名エイリアス（将来の名称変更対応用）
 _RANK_ALIASES: dict[str, str] = {}
+
+
+# ============================================================
+# Server Configuration
+# ============================================================
+
+SERVER_HOST = "0.0.0.0"
+SERVER_PORT = 9000
 
 
 # ============================================================
