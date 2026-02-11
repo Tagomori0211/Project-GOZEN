@@ -1,6 +1,7 @@
 import type { ChatMessage as ChatMessageType } from '../types/council'
 import ProposalCard from './ProposalCard'
 import Decree from './Decree'
+import OfficialDocument from './OfficialDocument'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -30,9 +31,9 @@ function ChatMessage({ message }: ChatMessageProps) {
     shoki: {
       icon: '📜',
       label: '書記',
-      bgColor: 'bg-genshu-900/50',
-      borderColor: 'border-genshu-700',
-      iconBg: 'bg-genshu-800',
+      bgColor: 'bg-shoki-900/50',
+      borderColor: 'border-shoki-700',
+      iconBg: 'bg-shoki-800',
     },
     genshu: {
       icon: '👑',
@@ -79,7 +80,9 @@ function ChatMessage({ message }: ChatMessageProps) {
 
       {/* コンテンツ */}
       <div className="text-slate-300 prose prose-invert max-w-none">
-        {type === 'decree' && typeof content === 'object' && 'decree_text' in content ? (
+        {type === 'decree' && typeof content === 'object' && 'markdown_content' in content ? (
+          <OfficialDocument markdown={(content as any).markdown_content} timestamp={(message as any).timestamp} />
+        ) : type === 'decree' && typeof content === 'object' && 'decree_text' in content ? (
           <Decree data={content as any} />
         ) : type === 'error' ? (
           <div className="text-red-400 bg-red-900/20 p-3 rounded">

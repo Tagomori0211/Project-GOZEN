@@ -354,7 +354,7 @@ async def _run_notification_flow(session_id: str, adopted_proposal: Dict[str, An
         # Broadcast Document (Shoki Summary)
         await manager.broadcast(session_id, {
             "type": "SHOKI_SUMMARY",
-            "content": doc.get("yaml_content", {}).get("message", "公文書作成完了")
+            "content": doc 
         })
         
         session["official_document"] = doc
