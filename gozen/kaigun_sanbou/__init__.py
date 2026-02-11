@@ -157,11 +157,19 @@ class KaigunSanbou:
         # JSONパース試行
         parsed = _parse_json_response(content)
         if parsed:
+            # 必須フィールドの補完
+            if "title" not in parsed:
+                parsed["title"] = f"海軍提案: {_safe_truncate(mission)}"
+            parsed["from"] = "kaigun"
             return parsed
 
         # JSONパース失敗時はテキスト全体をsummaryとして返す
         print("⚠️ [海軍参謀] JSONパース失敗、テキスト応答をsummaryとして使用")
-        return {"summary": content}
+        return {
+            "title": f"海軍提案: {_safe_truncate(mission)}",
+            "summary": content,
+            "from": "kaigun"
+        }
 
     # ===========================================================
     # フォールバック: テンプレート応答

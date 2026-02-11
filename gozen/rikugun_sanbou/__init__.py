@@ -213,11 +213,24 @@ class RikugunSanbou:
         # JSONパース試行
         parsed = _parse_json_response(content)
         if parsed:
+            # 必須フィールドの補完
+            if "title" not in parsed:
+                # alternative.title があればそれを使用、なければ生成
+                alt = parsed.get("alternative", {})
+                if isinstance(alt, dict) and alt.get("title"):
+                    parsed["title"] = alt.get("title")
+                else:
+                    parsed["title"] = f"陸軍代替案: {_safe_truncate(mission)}"
+            parsed["from"] = "rikugun"
             return parsed
 
         # JSONパース失敗時はテキスト全体をsummaryとして返す
         print("⚠️ [陸軍参謀] JSONパース失敗、テキスト応答をsummaryとして使用")
-        return {"summary": content}
+        return {
+            "title": f"陸軍代替案: {_safe_truncate(mission)}",
+            "summary": content,
+            "from": "rikugun"
+        }
 
     # ===========================================================
     # フォールバック: テンプレート応答

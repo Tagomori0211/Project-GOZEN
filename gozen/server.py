@@ -496,6 +496,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         # It just sends choice 3.
                         # We'll use a default instruction for now or prompt user?
                         # Since UI is fixed, let's use default "両案の良いとこ取りで"
+                        instruction = "双方の利点を活かし、懸念点を解消する形で統合せよ。"
+
                         # Broadcast the decision itself from Genshu
                         await manager.broadcast(session_id, {
                             "type": "decision",
