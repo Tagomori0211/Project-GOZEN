@@ -22,24 +22,20 @@ def _safe_truncate(text: str, max_len: int = 30) -> str:
 
 
 def _parse_json_response(content: str) -> Optional[dict[str, Any]]:
-    """LLMレスポンスからJSONを抽出・パースする"""
+    """LLMレスポンスからJSONを抽出・パースする（強化版）"""
+    import re
     text = content.strip()
 
-    # ```json ... ``` ブロックを抽出
-    if "```json" in text:
-        try:
-            start = text.index("```json") + 7
-            end = text.index("```", start)
-            text = text[start:end].strip()
-        except ValueError:
-            pass
-    elif "```" in text:
-        try:
-            start = text.index("```") + 3
-            end = text.index("```", start)
-            text = text[start:end].strip()
-        except ValueError:
-            pass
+    # 1. マークダウンコードブロックの抽出
+    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if match:
+        text = match.group(1)
+    else:
+        # 2. 最初と最後の波括弧を探す
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1:
+            text = text[start : end + 1]
 
     try:
         return json.loads(text)

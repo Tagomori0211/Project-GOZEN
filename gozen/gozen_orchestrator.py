@@ -83,26 +83,35 @@ class GozenOrchestrator:
         
         return state
 
+    async def step_kaigun_proposal(self, session_id: str, task: dict[str, Any]) -> dict[str, Any]:
+        """海軍提案を生成して保存"""
+        print(f"\n⚓ [海軍参謀] 提案生成開始: {session_id}")
+        kaigun_task = await kaigun_create_proposal(task)
+        print(f"✅ [海軍参謀] 提案生成完了")
+        self._save_to_queue("proposal", f"{session_id}_kaigun", kaigun_task)
+        return kaigun_task
+
+    async def step_rikugun_objection(self, session_id: str, task: dict[str, Any], kaigun_proposal: dict[str, Any]) -> dict[str, Any]:
+        """陸軍異議を生成して保存"""
+        print(f"\n🎖️ [陸軍参謀] 異議生成開始: {session_id}")
+        rikugun_task = await rikugun_create_objection(task, kaigun_proposal)
+        print(f"✅ [陸軍参謀] 異議生成完了")
+        self._save_to_queue("proposal", f"{session_id}_rikugun", rikugun_task)
+        return rikugun_task
+
     async def generate_proposals(self, session_id: str, task: dict[str, Any]) -> dict[str, Any]:
-        """海軍・陸軍の提案を生成（モードに応じて並列/直列）"""
+        """海軍・陸軍の提案を生成（モードに応じて並列/直列）- Legacy Wrapper"""
         print(f"\n🏯 [御前会議] 提案生成開始: {session_id} (Mode: {self.mode})")
         
         if self.mode == "sequential":
-            # 1. 海軍提案
-            kaigun_task = await kaigun_create_proposal(task)
-            self._save_to_queue("proposal", f"{session_id}_kaigun", kaigun_task)
-            
-            # 2. 陸軍異議（海軍提案への反論）
-            rikugun_task = await rikugun_create_objection(task, kaigun_task)
-            self._save_to_queue("proposal", f"{session_id}_rikugun", rikugun_task)
-            
+            kaigun_task = await self.step_kaigun_proposal(session_id, task)
+            rikugun_task = await self.step_rikugun_objection(session_id, task, kaigun_task)
         else:
             # 並列生成（既存ロジック・陸軍は独自提案）
             kaigun_task, rikugun_task = await asyncio.gather(
                 kaigun_create_proposal(task),
                 rikugun_create_proposal(task)
             )
-            
             self._save_to_queue("proposal", f"{session_id}_kaigun", kaigun_task)
             self._save_to_queue("proposal", f"{session_id}_rikugun", rikugun_task)
         

@@ -85,32 +85,54 @@ async def _run_proposal_phase(session_id: str, task: Dict[str, Any]):
     session = _sessions[session_id]
 
     try:
+    try:
         # Notify start of proposal phase
         await manager.broadcast(session_id, {"type": "PHASE", "phase": "proposal", "status": "in_progress"})
         
-        proposals = await orch.generate_proposals(session_id, task)
-        
-        # Requests are simulated in separate phases in real interaction, but for now we do it all at once
-        # Broadcast Kaigun Proposal
-        await manager.broadcast(session_id, {
-            "type": "PROPOSAL",
-            "content": proposals["kaigun_proposal"].get("summary", ""),
-            "fullText": proposals["kaigun_proposal"].get("content", "")
-        })
+        # 1. Kaigun Proposal
+        if orch.mode == "sequential":
+            kaigun_proposal = await orch.step_kaigun_proposal(session_id, task)
+             # Broadcast Kaigun Proposal Immediately
+            await manager.broadcast(session_id, {
+                "type": "PROPOSAL",
+                "content": kaigun_proposal.get("summary", ""),
+                "fullText": kaigun_proposal.get("content", "")
+            })
+            session["kaigun_proposal"] = kaigun_proposal
 
-        # Notify objection phase
-        await manager.broadcast(session_id, {"type": "PHASE", "phase": "objection", "status": "in_progress"})
-        
-        # Broadcast Rikugun Objection
-        await manager.broadcast(session_id, {
-            "type": "OBJECTION",
-            "content": proposals["rikugun_proposal"].get("summary", ""),
-            "fullText": proposals["rikugun_proposal"].get("content", "")
-        })
-        
+            # Notify objection phase
+            await manager.broadcast(session_id, {"type": "PHASE", "phase": "objection", "status": "in_progress"})
+
+            # 2. Rikugun Objection
+            rikugun_proposal = await orch.step_rikugun_objection(session_id, task, kaigun_proposal)
+            # Broadcast Rikugun Objection
+            await manager.broadcast(session_id, {
+                "type": "OBJECTION",
+                "content": rikugun_proposal.get("summary", ""),
+                "fullText": rikugun_proposal.get("content", "")
+            })
+            session["rikugun_proposal"] = rikugun_proposal
+            
+        else:
+             # Legacy/Parallel Mode (Keep if needed, or remove if unused)
+            proposals = await orch.generate_proposals(session_id, task)
+            session["kaigun_proposal"] = proposals["kaigun_proposal"]
+            session["rikugun_proposal"] = proposals["rikugun_proposal"]
+            
+            # Broadcast results (simultaneous)
+            await manager.broadcast(session_id, {
+                "type": "PROPOSAL",
+                "content": session["kaigun_proposal"].get("summary", ""),
+                "fullText": session["kaigun_proposal"].get("content", "")
+            })
+            await manager.broadcast(session_id, {
+                "type": "OBJECTION",
+                "content": session["rikugun_proposal"].get("summary", ""),
+                "fullText": session["rikugun_proposal"].get("content", "")
+            })
+
         # Update session state
-        session["kaigun_proposal"] = proposals["kaigun_proposal"]
-        session["rikugun_proposal"] = proposals["rikugun_proposal"]
+        session["status"] = "awaiting_arbitration"
         session["status"] = "awaiting_arbitration"
         session["updated_at"] = datetime.now().isoformat()
         
@@ -143,6 +165,14 @@ async def _run_integration_phase(session_id: str, instruction: str):
     
     try:
         session["status"] = "integrating"
+        
+        # Genshu's order
+        await manager.broadcast(session_id, {
+            "type": "info",
+            "from": "genshu",
+            "content": "両名の意見は理解した。これより書記に命じ、折衷案を作成させる。"
+        })
+
         await manager.broadcast(session_id, {"type": "PHASE", "phase": "merged", "status": "in_progress"})
         
         kaigun = session.get("kaigun_proposal")

@@ -105,7 +105,7 @@ class Shoki:
 セッションID: {session_id}
 採択案: {adopted.get('title', 'N/A')}
 概要: {adopted.get('summary', 'N/A')}
-要点: {', '.join(adopted.get('key_points', []))}
+要点: {', '.join(adopted.get('key_points') or (['. '.join(c.get('detail', '') for c in adopted.get('concerns', []))] if 'concerns' in adopted else []))}
 決定日時: {notification.get('notified_at', datetime.now().isoformat())}
 
 【出力形式】

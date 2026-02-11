@@ -39,7 +39,7 @@ export interface DecreeData {
 export interface ChatMessage {
   id: string;
   from: MessageFrom;
-  type: 'proposal' | 'objection' | 'merged' | 'validation' | 'decision' | 'info' | 'error' | 'decree';
+  type: 'proposal' | 'objection' | 'merged' | 'validation' | 'decision' | 'info' | 'error' | 'decree' | 'loading';
   content: Proposal | string | DecreeData;
   fullText?: string;
   timestamp: Date;

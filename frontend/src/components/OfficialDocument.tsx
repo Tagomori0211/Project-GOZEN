@@ -58,9 +58,14 @@ const OfficialDocument: React.FC<OfficialDocumentProps> = ({ markdown, timestamp
     );
 
     return (
-        <div className="max-w-4xl mx-auto my-8 p-16 bg-[#fdfbf7] text-black font-serif shadow-2xl relative border border-stone-200 leading-relaxed">
+        <div className="max-w-4xl mx-auto my-8 p-16 bg-[#fdfbf7] text-black font-serif shadow-2xl relative border border-stone-200 leading-relaxed overflow-hidden">
+            {/* Watermark */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[20rem] text-stone-100 font-serif font-bold pointer-events-none select-none z-0 rotate-[-30deg] opacity-50">
+                GOZEN
+            </div>
+
             {/* Header Area */}
-            <div className="flex justify-between items-start mb-12">
+            <div className="flex justify-between items-start mb-12 relative z-10">
                 {/* Left: Addressee (Usually comes after Date/Number in standard layout, 
                     but user requested: "Right top... titles... Left: To Genshu-dono")
                     Standard Japanese Business/Official Document:
@@ -101,10 +106,17 @@ const OfficialDocument: React.FC<OfficialDocumentProps> = ({ markdown, timestamp
             </div>
 
             {/* Title */}
-            <div className="text-center mb-16">
-                <h1 className="text-3xl font-bold tracking-widest border-b-2 border-black inline-block pb-2 px-4">
+            <div className="text-center mb-16 relative">
+                <h1 className="text-3xl font-bold tracking-widest border-b-2 border-black inline-block pb-2 px-4 z-10 relative">
                     御前会議最終決定書
                 </h1>
+
+                {/* Grand Stamp "全軍通達" */}
+                <div className="absolute top-[-20px] left-1/2 transform -translate-x-1/2 -rotate-12 border-4 border-red-600 rounded-lg p-2 opacity-80 pointer-events-none">
+                    <div className="border-2 border-red-600 px-4 py-2 text-red-600 font-serif font-black text-4xl tracking-widest whitespace-nowrap">
+                        全軍通達
+                    </div>
+                </div>
             </div>
 
             {/* Content */}

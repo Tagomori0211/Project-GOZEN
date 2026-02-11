@@ -88,6 +88,11 @@ function ChatMessage({ message }: ChatMessageProps) {
           <div className="text-red-400 bg-red-900/20 p-3 rounded">
             {typeof content === 'string' ? content : JSON.stringify(content)}
           </div>
+        ) : type === 'loading' ? (
+          <div className="flex items-center gap-3 text-slate-300">
+            <span>{typeof content === 'string' ? content : ''}</span>
+            <div className={`animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full ${from === 'kaigun' ? 'text-blue-400' : from === 'rikugun' ? 'text-green-400' : 'text-slate-400'}`} />
+          </div>
         ) : typeof content === 'object' && ('title' in content || 'summary' in content || 'key_points' in content) ? (
           <ProposalCard proposal={content as any} fullText={fullText} />
         ) : (

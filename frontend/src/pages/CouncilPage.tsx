@@ -69,13 +69,28 @@ function CouncilPage() {
 
         if (message.status === 'in_progress') {
           const phaseLabels: Record<string, string> = {
-            proposal: '海軍参謀が提案を作成しています...',
-            objection: '陸軍参謀が異議を検討しています...',
             merged: '書記が統合案を起草しています...',
             validation: '海軍参謀が妥当性を検証しています...',
             execution: '実行部隊が展開しています...',
           }
-          if (phaseLabels[message.phase]) {
+
+          if (message.phase === 'proposal') {
+            setMessages(prev => [...prev, {
+              id: `loading-${Date.now()}`,
+              from: 'kaigun',
+              type: 'loading',
+              content: '提案を作成しています...',
+              timestamp: new Date()
+            }])
+          } else if (message.phase === 'objection') {
+            setMessages(prev => [...prev, {
+              id: `loading-${Date.now()}`,
+              from: 'rikugun',
+              type: 'loading',
+              content: '異議を検討しています...',
+              timestamp: new Date()
+            }])
+          } else if (phaseLabels[message.phase]) {
             addMessage({
               from: 'system',
               type: 'info',
@@ -86,20 +101,40 @@ function CouncilPage() {
         break
 
       case 'PROPOSAL':
-        addMessage({
-          from: 'kaigun',
-          type: 'proposal',
-          content: message.content,
-          fullText: message.fullText,
+        setMessages(prev => {
+          // Loadingメッセージがあれば削除
+          const last = prev[prev.length - 1];
+          let newMsgs = [...prev];
+          if (last && last.type === 'loading' && last.from === 'kaigun') {
+            newMsgs.pop();
+          }
+          return [...newMsgs, {
+            from: 'kaigun',
+            type: 'proposal',
+            content: message.content,
+            fullText: message.fullText,
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: new Date(),
+          }]
         })
         break
 
       case 'OBJECTION':
-        addMessage({
-          from: 'rikugun',
-          type: 'objection',
-          content: message.content,
-          fullText: message.fullText,
+        setMessages(prev => {
+          // Loadingメッセージがあれば削除
+          const last = prev[prev.length - 1];
+          let newMsgs = [...prev];
+          if (last && last.type === 'loading' && last.from === 'rikugun') {
+            newMsgs.pop();
+          }
+          return [...newMsgs, {
+            from: 'rikugun',
+            type: 'objection',
+            content: message.content,
+            fullText: message.fullText,
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: new Date(),
+          }]
         })
         break
 
