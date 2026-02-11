@@ -126,13 +126,13 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
         "kaigun_sanbou": _rc(
             name_ja="海軍参謀", name_en="Naval Staff",
             branch=Branch.KAIGUN,
-            model="gemini-2.5-pro",
+            model="gemini-1.5-pro",
             backend=InferenceBackend.GEMINI_API,
         ),
         "rikugun_sanbou": _rc(
             name_ja="陸軍参謀", name_en="Army Staff",
             branch=Branch.RIKUGUN,
-            model="gemini-2.5-pro",
+            model="gemini-1.5-pro",
             backend=InferenceBackend.GEMINI_API,
         ),
 
@@ -141,7 +141,7 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
         "shoki": _rc(
             name_ja="書記", name_en="Clerk",
             branch=Branch.KAIGUN,
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             backend=InferenceBackend.GEMINI_API,
         ),
     },

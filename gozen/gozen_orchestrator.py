@@ -112,7 +112,7 @@ class GozenOrchestrator:
         from gozen.shoki import Shoki, ShokiConfig
         
         config = ShokiConfig(
-            model="mock-model" if sl == "mock" else "gemini-2.5-flash",
+            model="mock-model" if sl == "mock" else "gemini-1.5-flash",
             backend="mock" if sl == "mock" else "gemini_api"
         )
         shoki = Shoki(config=config, security_level=sl)
@@ -340,7 +340,7 @@ class GozenOrchestrator:
         
         from gozen.shoki import Shoki, ShokiConfig
         config = ShokiConfig(
-            model="mock-model" if sl == "mock" else "gemini-2.5-flash",
+            model="mock-model" if sl == "mock" else "gemini-1.5-flash",
             backend="mock" if sl == "mock" else "gemini_api"
         )
         shoki = Shoki(config=config, security_level=sl)
