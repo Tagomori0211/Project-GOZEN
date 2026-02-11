@@ -141,7 +141,7 @@ RANK_CONFIGS: dict[SecurityLevel, dict[str, RankConfig]] = {
         "shoki": _rc(
             name_ja="書記", name_en="Clerk",
             branch=Branch.KAIGUN,
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             backend=InferenceBackend.GEMINI_API,
         ),
     },

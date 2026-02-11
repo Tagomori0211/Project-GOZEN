@@ -112,7 +112,7 @@ class GozenOrchestrator:
         from gozen.shoki import Shoki, ShokiConfig
         
         config = ShokiConfig(
-            model="mock-model" if sl == "mock" else "gemini-1.5-flash",
+            model="mock-model" if sl == "mock" else "gemini-2.5-flash",
             backend="mock" if sl == "mock" else "gemini_api"
         )
         shoki = Shoki(config=config, security_level=sl)
@@ -203,12 +203,12 @@ class GozenOrchestrator:
                 if choice == 1: # Adopt Kaigun
                     yield {"type": "decision", "from": "genshu", "content": "裁定: 海軍案を採択"}
                     await self._finalize_session(session_id, kaigun_proposal)
-                    yield {"type": "PHASE", "phase": "complete", "status": "success"}
+                    yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "kaigun"}}
                     return
                 elif choice == 2: # Adopt Rikugun
                     yield {"type": "decision", "from": "genshu", "content": "裁定: 陸軍案を採択"}
                     await self._finalize_session(session_id, rikugun_objection)
-                    yield {"type": "PHASE", "phase": "complete", "status": "success"}
+                    yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "rikugun"}}
                     return
                 elif choice == 3: # Integrate
                     yield {"type": "decision", "from": "genshu", "content": "裁定: 統合案を作成"}
@@ -235,7 +235,7 @@ class GozenOrchestrator:
                     
                     if merge_choice == 1:
                         await self._finalize_session(session_id, merged)
-                        yield {"type": "PHASE", "phase": "complete", "status": "success"}
+                        yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "integrated"}}
                         return
                     else:
                         # --- Validation Phase (New in Phase 22) ---
@@ -340,7 +340,7 @@ class GozenOrchestrator:
         
         from gozen.shoki import Shoki, ShokiConfig
         config = ShokiConfig(
-            model="mock-model" if sl == "mock" else "gemini-1.5-flash",
+            model="mock-model" if sl == "mock" else "gemini-2.5-flash",
             backend="mock" if sl == "mock" else "gemini_api"
         )
         shoki = Shoki(config=config, security_level=sl)
