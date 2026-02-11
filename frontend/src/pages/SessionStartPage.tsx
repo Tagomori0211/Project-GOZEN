@@ -6,7 +6,7 @@ function SessionStartPage() {
     const navigate = useNavigate()
     // Mode selection is removed, defaulting to 'council'
     const mode: CouncilMode = 'council'
-    const [securityLevel, setSecurityLevel] = useState<'public' | 'mock'>('mock')
+    const [securityLevel, setSecurityLevel] = useState<'public' | 'confidential' | 'mock'>('public')
     const [mission, setMission] = useState('')
     const [isLoading, setIsLoading] = useState(false)
 
@@ -60,20 +60,27 @@ function SessionStartPage() {
                     />
                 </div>
 
-                {/* Security Level (Hidden in production or kept small) */}
-                <div className="mb-8 flex justify-end">
+                {/* Security Level */}
+                <div className="mb-8 flex justify-end items-center gap-3">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-widest">Security Level:</span>
                     <div className="flex bg-slate-900/50 p-1 rounded-lg border border-slate-700/50 scale-90 origin-right">
-                        <button
-                            onClick={() => setSecurityLevel('mock')}
-                            className={`px-4 py-1 text-xs rounded transition-all ${securityLevel === 'mock' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30' : 'text-slate-600 hover:text-slate-400'}`}
-                        >
-                            MOCK
-                        </button>
                         <button
                             onClick={() => setSecurityLevel('public')}
                             className={`px-4 py-1 text-xs rounded transition-all ${securityLevel === 'public' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/30' : 'text-slate-600 hover:text-slate-400'}`}
                         >
                             PUBLIC
+                        </button>
+                        <button
+                            onClick={() => setSecurityLevel('confidential')}
+                            className={`px-4 py-1 text-xs rounded transition-all ${securityLevel === 'confidential' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/30' : 'text-slate-600 hover:text-slate-400'}`}
+                        >
+                            CONFIDENTIAL
+                        </button>
+                        <button
+                            onClick={() => setSecurityLevel('mock')}
+                            className={`px-4 py-1 text-xs rounded transition-all ${securityLevel === 'mock' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30' : 'text-slate-600 hover:text-slate-400'}`}
+                        >
+                            MOCK
                         </button>
                     </div>
                 </div>

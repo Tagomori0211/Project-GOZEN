@@ -11,6 +11,7 @@ export type SessionPhase =
   | 'validation'
   | 'decision'
   | 'execution'
+  | 'final_notification'
   | 'completed'
   | 'error';
 

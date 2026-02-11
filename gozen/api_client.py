@@ -346,10 +346,19 @@ class GeminiClient(BaseAPIClient):
 
         try:
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: client.generate_content(prompt)
+            # タイムアウトを設定（デフォルト60秒）
+            timeout = kwargs.get("timeout", 60)
+            
+            response = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: client.generate_content(prompt)
+                ),
+                timeout=timeout
             )
+
+            if not response or not hasattr(response, "text"):
+                raise APIError("Gemini API から空の応答が返されました。")
 
             usage_metadata = getattr(response, "usage_metadata", None)
             input_tokens = getattr(usage_metadata, "prompt_token_count", 0) if usage_metadata else 0
@@ -364,6 +373,8 @@ class GeminiClient(BaseAPIClient):
                 "model": self.config.model,
             }
 
+        except asyncio.TimeoutError:
+            raise APIError(f"Gemini API 呼び出しがタイムアウトしました（{timeout}秒）。")
         except Exception as e:
             error_str = str(e).lower()
             if "rate" in error_str or "429" in error_str or "quota" in error_str:

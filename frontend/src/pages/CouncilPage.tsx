@@ -90,6 +90,14 @@ function CouncilPage() {
               content: '異議を検討しています...',
               timestamp: new Date()
             }])
+          } else if (message.phase === 'final_notification') {
+            setMessages(prev => [...prev, {
+              id: `loading-${Date.now()}`,
+              from: 'shoki',
+              type: 'loading',
+              content: '公文書を発行しています...',
+              timestamp: new Date()
+            }])
           } else if (phaseLabels[message.phase]) {
             addMessage({
               from: 'system',
@@ -194,18 +202,44 @@ function CouncilPage() {
         break
 
       case 'INFO':
-        addMessage({
-          from: 'system',
-          type: 'info',
-          content: message.content,
-        })
+        if (message.from === 'shoki') {
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            let newMsgs = [...prev];
+            if (last && last.type === 'loading' && last.from === 'shoki') {
+              newMsgs.pop();
+            }
+            return [...newMsgs, {
+              id: `loading-${Date.now()}`,
+              from: 'shoki',
+              type: 'loading',
+              content: message.content,
+              timestamp: new Date()
+            }]
+          })
+        } else {
+          addMessage({
+            from: 'system',
+            type: 'info',
+            content: message.content,
+          })
+        }
         break
 
       case 'SHOKI_SUMMARY':
-        addMessage({
-          from: 'shoki',
-          type: 'decree',
-          content: message.content,
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          let newMsgs = [...prev];
+          if (last && last.type === 'loading' && last.from === 'shoki') {
+            newMsgs.pop();
+          }
+          return [...newMsgs, {
+            from: 'shoki',
+            type: 'decree',
+            content: message.content,
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: new Date(),
+          }]
         })
         break
 

@@ -108,16 +108,8 @@ class GozenOrchestrator:
 
     async def step_shoki_integration(self, session_id: str, task: dict[str, Any], kaigun_proposal: dict[str, Any], rikugun_proposal: dict[str, Any], security_level: Optional[str] = None) -> dict[str, Any]:
         """書記による統合案（折衷案）作成"""
-        sl = security_level if security_level is not None else task.get("security_level", "public")
-        from gozen.shoki import Shoki, ShokiConfig
-        
-        config = ShokiConfig(
-            model="mock-model" if sl == "mock" else "gemini-2.5-flash",
-            backend="mock" if sl == "mock" else "gemini_api"
-        )
-        shoki = Shoki(config=config, security_level=sl)
         merge_instruction = task.get("merge_instruction", "双方の利点を活かし統合せよ。")
-        merged = await shoki.synthesize(kaigun_proposal, rikugun_proposal, merge_instruction)
+        merged = await self.shoki.synthesize(kaigun_proposal, rikugun_proposal, merge_instruction)
         self._save_to_queue("proposal", f"{session_id}_integrated", merged)
         return merged
 
@@ -145,6 +137,17 @@ class GozenOrchestrator:
     async def run_council_session(self, session_id: str, mission: str, security_level: Optional[str] = "public"):
         """御前会議の PCA サイクルを回す async generator"""
         self.security_level = security_level # クラス全体で共有
+        
+        # 書記の再初期化
+        from gozen.config import SecurityLevel, get_rank_config
+        from gozen.shoki import Shoki, ShokiConfig
+        sl_enum = SecurityLevel(security_level) if security_level else SecurityLevel.PUBLIC
+        sh_conf = get_rank_config("shoki", sl_enum)
+        self.shoki = Shoki(ShokiConfig(
+            model=sh_conf.model,
+            backend=sh_conf.backend.value
+        ), security_level=security_level)
+        
         state = CouncilSessionState(session_id=session_id, mission=mission, security_level=security_level)
         self.sessions[session_id] = state # 状態を保持（Future設定のため）
         
@@ -202,12 +205,14 @@ class GozenOrchestrator:
                 
                 if choice == 1: # Adopt Kaigun
                     yield {"type": "decision", "from": "genshu", "content": "裁定: 海軍案を採択"}
-                    await self._finalize_session(session_id, kaigun_proposal)
+                    async for event in self._finalize_session(session_id, kaigun_proposal):
+                        yield event
                     yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "kaigun"}}
                     return
                 elif choice == 2: # Adopt Rikugun
                     yield {"type": "decision", "from": "genshu", "content": "裁定: 陸軍案を採択"}
-                    await self._finalize_session(session_id, rikugun_objection)
+                    async for event in self._finalize_session(session_id, rikugun_objection):
+                        yield event
                     yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "rikugun"}}
                     return
                 elif choice == 3: # Integrate
@@ -234,7 +239,8 @@ class GozenOrchestrator:
                     state.current_decision_future = None
                     
                     if merge_choice == 1:
-                        await self._finalize_session(session_id, merged)
+                        async for event in self._finalize_session(session_id, merged):
+                            yield event
                         yield {"type": "COMPLETE", "result": {"approved": True, "adopted": "integrated"}}
                         return
                     else:
@@ -282,10 +288,21 @@ class GozenOrchestrator:
         dashboard = get_dashboard()
         await dashboard.phase_update("execution", "completed")
         
+        yield {"type": "PHASE", "phase": "final_notification", "status": "in_progress"}
+        yield {"type": "info", "from": "shoki", "content": "最終裁定に基づき、全軍通達を作成中..."}
+        
         notification = await self.notify_all(session_id, adopted_proposal)
         await dashboard.decision_update("adopted", notification.get("message", "採択通達"))
         
+        yield {"type": "info", "from": "shoki", "content": "御前会議決定公文書を発行中..."}
         doc = await self.create_official_document(session_id, notification)
+        
+        yield {
+            "type": "SHOKI_SUMMARY",
+            "from": "shoki",
+            "content": doc.get("markdown_content", "公文書の生成に失敗しました。")
+        }
+        
         await dashboard.session_end("completed")
 
     def _format_proposal(self, proposal: dict[str, Any]) -> str:
@@ -334,17 +351,7 @@ class GozenOrchestrator:
         """公文書化"""
         print(f"\n📜 [書記] 公文書作成中: {session_id}")
         
-        # セッションからセキュリティレベルを取得
-        state = self.sessions.get(session_id)
-        sl = state.security_level if state else "public"
-        
-        from gozen.shoki import Shoki, ShokiConfig
-        config = ShokiConfig(
-            model="mock-model" if sl == "mock" else "gemini-2.5-flash",
-            backend="mock" if sl == "mock" else "gemini_api"
-        )
-        shoki = Shoki(config=config, security_level=sl)
-        doc = await shoki.create_official_document(notification)
+        doc = await self.shoki.create_official_document(notification)
         
         # 保存
         self._save_to_queue("decision", f"{session_id}_official", doc)
