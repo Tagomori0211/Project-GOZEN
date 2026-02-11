@@ -496,12 +496,28 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         # It just sends choice 3.
                         # We'll use a default instruction for now or prompt user?
                         # Since UI is fixed, let's use default "両案の良いとこ取りで"
-                        instruction = "双方の利点を活かし、懸念点を解消する形で統合せよ。"
+                        # Broadcast the decision itself from Genshu
+                        await manager.broadcast(session_id, {
+                            "type": "decision",
+                            "from": "genshu",
+                            "content": "裁定: 統合案を作成"
+                        })
                         
-                        await manager.broadcast(session_id, {"type": "INFO", "content": "統合指示: " + instruction})
+                        await manager.broadcast(session_id, {
+                            "type": "info", 
+                            "from": "genshu", 
+                            "content": "統合指示: " + instruction
+                        })
                         asyncio.create_task(_run_integration_phase(session_id, instruction))
                         
                     elif decision in ["kaigun", "rikugun"]:
+                        # Broadcast the decision itself from Genshu
+                        await manager.broadcast(session_id, {
+                            "type": "decision",
+                            "from": "genshu",
+                            "content": f"裁定: {'海軍案を採択' if decision == 'kaigun' else '陸軍案を採択'}"
+                        })
+                        
                         session = _sessions[session_id]
                         adopted = session.get(f"{decision}_proposal")
                         asyncio.create_task(_run_notification_flow(session_id, adopted))

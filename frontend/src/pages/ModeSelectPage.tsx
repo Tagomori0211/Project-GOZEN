@@ -39,7 +39,6 @@ function ModeSelectPage() {
           作戦立案
         </h1>
 
-
         {/* 任務入力 */}
         <div className="mb-8">
           <label className="block text-slate-400 text-sm mb-3">議題</label>

@@ -83,6 +83,57 @@ class Shoki:
         merged = await self._call_llm_synthesize(proposal, objection, merge_instruction)
         return merged
 
+    def _extract_json_robust(self, text: str) -> Optional[dict[str, Any]]:
+        """
+        LLMの出力からJSONまたはYAMLを極めて堅牢に抽出する。
+        1. Markdownコードブロックを探す (json, yaml, 無し)
+        2. 最初の { と 最後の } を探して抽出を試みる
+        3. YAMLとしてパースを試みる
+        """
+        import json
+        import re
+        import yaml
+
+        # 1. Markdownブロック抽出
+        for lang in ['json', 'yaml', '']:
+            pattern = rf"```{lang}\s*(.*?)\s*```"
+            match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+            if match:
+                content = match.group(1).strip()
+                # 試しにJSONパース
+                try:
+                    return json.loads(content)
+                except:
+                    pass
+                # 試しにYAMLパース
+                try:
+                    y = yaml.safe_load(content)
+                    if isinstance(y, dict): return y
+                except:
+                    pass
+
+        # 2. ブレースマッチングによる抽出
+        brace_match = re.search(r"(\{.*\})", text, re.DOTALL)
+        if brace_match:
+            try:
+                return json.loads(brace_match.group(1).strip())
+            except:
+                pass
+
+        # 3. 全体をYAMLとしてパース（最も寛容）
+        try:
+            # 極端に汚い入力を考慮して不要なプレフィックスを除去
+            cleaned = text.strip()
+            if cleaned.lower().startswith("json"): cleaned = cleaned[4:].strip()
+            if cleaned.lower().startswith("yaml"): cleaned = cleaned[4:].strip()
+            
+            y = yaml.safe_load(cleaned)
+            if isinstance(y, dict): return y
+        except:
+            pass
+
+        return None
+
     async def create_official_document(
         self,
         notification: dict[str, Any],
@@ -119,25 +170,16 @@ JSON形式で出力してください:
             result = await client.call(prompt)
             content = result.get("content", "")
             
-            # JSONパース（簡易）
-            import json
-            import re
-            
-            json_str = content
-            if "```json" in content:
-                match = re.search(r"```json(.*?)```", content, re.DOTALL)
-                if match:
-                    json_str = match.group(1)
-            
-            try:
-                parsed = json.loads(json_str.strip())
+            parsed = self._extract_json_robust(content)
+            if parsed and isinstance(parsed, dict) and "markdown_content" in parsed:
                 return parsed
-            except json.JSONDecodeError:
-                return {
-                    "markdown_content": f"# 御前会議 決定公文書\n\nパース失敗\n\n{content}",
-                    "yaml_content": notification,
-                    "filename": f"{session_id}_decision_fallback.md"
-                }
+
+            # フォールバック
+            return {
+                "markdown_content": f"# 御前会議 決定公文書\n\nパース失敗。以下に未加工の出力を記録する。\n\n---\n\n{content}",
+                "yaml_content": notification,
+                "filename": f"{session_id}_decision_fallback.md"
+            }
                 
         except Exception as e:
             logger.error(f"公文書作成失敗: {e}")
@@ -317,7 +359,7 @@ gozen decide --task <TASK_ID> --action <ACTION>
 {objection}
 
 【出力形式】
-以下のキーを含むYAML形式で出力せよ:
+以下のキーを含むJSONまたはYAML形式で出力せよ:
 - title: 統合案のタイトル
 - summary: 概要（1-2文）
 - key_points: 統合されたポイントのリスト
@@ -327,36 +369,18 @@ gozen decide --task <TASK_ID> --action <ACTION>
             result = await client.call(prompt)
             content = result.get("content", "")
 
-            # Markdownコードブロックの除去
-            cleaned_content = content.replace("```yaml", "").replace("```json", "").replace("```", "").strip()
-            
-            # 先頭の "yaml" や "json" という単語を除去（LLMがたまに出力するため）
-            if cleaned_content.lower().startswith("yaml"):
-                cleaned_content = cleaned_content[4:].strip()
-            if cleaned_content.lower().startswith("json"):
-                cleaned_content = cleaned_content[4:].strip()
-
-            print(f"DEBUG: Shoki synthesize raw content: {content[:100]}...")
-            print(f"DEBUG: Shoki synthesize cleaned content: {cleaned_content[:100]}...")
-
-            # YAML パース試行
-            import yaml
-            try:
-                parsed = yaml.safe_load(cleaned_content)
-                if isinstance(parsed, dict):
-                    return parsed
-                print(f"DEBUG: Key points parsing failed (not a dict): {type(parsed)}")
-            except yaml.YAMLError as e:
-                print(f"DEBUG: YAML parse error: {e}")
-                pass
+            parsed = self._extract_json_robust(content)
+            if parsed and isinstance(parsed, dict):
+                return parsed
 
             # パースに失敗した場合、テキストとして返す
             return {
                 "title": "統合案（書記起草・パース予備）",
                 "summary": content[:200],
-                "raw_content": content,
-                "kaigun_elements": proposal.get("key_points", []),
-                "rikugun_elements": objection.get("key_points", []),
+                "content": content,
+                "key_points": [f"パース失敗、原文を参照してください: {content[:100]}..."],
+                "kaigun_adopted": proposal.get("key_points", []),
+                "rikugun_adopted": objection.get("key_points", []),
             }
 
         except Exception as e:
@@ -364,8 +388,7 @@ gozen decide --task <TASK_ID> --action <ACTION>
             return {
                 "title": "折衷案（簡易マージ）",
                 "summary": f"元首指示: {merge_instruction}",
-                "kaigun_elements": proposal.get("key_points", []),
-                "rikugun_elements": objection.get("key_points", []),
+                "key_points": proposal.get("key_points", []) + objection.get("key_points", []),
             }
 
     async def summarize_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
@@ -408,30 +431,12 @@ gozen decide --task <TASK_ID> --action <ACTION>
             result = await client.call(prompt)
             content = result.get("content", "")
 
-            # JSONパース試行
-            import json
-            import re
-            
-            json_str = content
-            # コードブロック除去
-            if "```json" in content:
-                match = re.search(r"```json(.*?)```", content, re.DOTALL)
-                if match:
-                    json_str = match.group(1)
-            elif "```" in content:
-                match = re.search(r"```(.*?)```", content, re.DOTALL)
-                if match:
-                    json_str = match.group(1)
-
-            try:
-                data = json.loads(json_str.strip())
-            except json.JSONDecodeError:
-                # フォールバック
-                data = {
-                    "decree_text": "決定事項の要約生成に失敗しました。以上において最終の決を与える。",
-                    "criteria": ["詳細不明"],
-                    "date": datetime.now().strftime('%Y年%m月%d日')
-                }
+            parsed = self._extract_json_robust(content)
+            data = parsed if (parsed and isinstance(parsed, dict)) else {
+                "decree_text": "決定事項の要約生成に失敗しました。以上において最終の決を与える。",
+                "criteria": ["詳細不明"],
+                "date": datetime.now().strftime('%Y年%m月%d日')
+            }
 
             return {
                 "type": "decree",
@@ -444,7 +449,6 @@ gozen decide --task <TASK_ID> --action <ACTION>
 
         except Exception as e:
             logger.error("書記要約失敗（フォールバック）: %s", e)
-            print("⚠️ [書記] デバッグモード: APIスキップ - テンプレート裁定を返却")
             
             # 参加者スタンプ状態
             seal_status = {
@@ -454,6 +458,7 @@ gozen decide --task <TASK_ID> --action <ACTION>
             }
             
             # デバッグ用のダミー通達
+            adopted_type = decision.get("adopted", "unknown") # Ensure adopted_type is defined for fallback
             is_kaigun = adopted_type == "kaigun"
             return {
                 "type": "decree",
