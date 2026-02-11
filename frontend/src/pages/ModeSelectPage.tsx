@@ -5,6 +5,7 @@ import type { CouncilMode } from '../types/council'
 function ModeSelectPage() {
   const navigate = useNavigate()
   const [mode] = useState<CouncilMode>('council')
+  const [securityLevel, setSecurityLevel] = useState<'public' | 'mock'>('mock')
   const [mission, setMission] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -18,12 +19,13 @@ function ModeSelectPage() {
       const response = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ security_level: securityLevel })
       })
       const { session_id } = await response.json()
 
       // 会議ページへ遷移（missionとmodeをstateで渡す）
       navigate(`/council/${session_id}`, {
-        state: { mission, mode },
+        state: { mission, mode, securityLevel },
       })
     } catch (error) {
       console.error('Failed to create session:', error)
@@ -54,13 +56,51 @@ function ModeSelectPage() {
           />
         </div>
 
+        {/* モード・セキュリティ設定 */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <div>
+            <label className="block text-slate-400 text-sm mb-3">会議モード</label>
+            <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
+              <button
+                className={`flex-1 py-2 text-sm rounded ${mode === 'council' ? 'bg-genshu-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                通常会議
+              </button>
+              <button
+                disabled
+                className="flex-1 py-2 text-sm text-slate-600 cursor-not-allowed"
+              >
+                ドライラン
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-slate-400 text-sm mb-3">セキュリティ</label>
+            <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
+              <button
+                onClick={() => setSecurityLevel('mock')}
+                className={`flex-1 py-2 text-sm rounded transition-all ${securityLevel === 'mock' ? 'bg-amber-500/20 text-amber-500 border border-amber-500/50' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                MOCK
+              </button>
+              <button
+                onClick={() => setSecurityLevel('public')}
+                className={`flex-1 py-2 text-sm rounded transition-all ${securityLevel === 'public' ? 'bg-blue-500/20 text-blue-500 border border-blue-500/50' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                PUBLIC
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* 開始ボタン */}
         <button
           onClick={handleStart}
           disabled={!mission.trim() || isLoading}
           className="w-full py-4 bg-genshu-500 text-slate-900 font-medium text-lg rounded-lg
                      hover:bg-genshu-400 disabled:bg-slate-700 disabled:text-slate-500
-                     transition-colors focus:outline-none focus:ring-2 focus:ring-genshu-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                     shadow-lg shadow-genshu-500/20
+                     transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-genshu-500 focus:ring-offset-2 focus:ring-offset-slate-900"
         >
           {isLoading ? '準備中...' : '会議開始'}
         </button>

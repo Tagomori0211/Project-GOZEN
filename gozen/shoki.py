@@ -84,55 +84,9 @@ class Shoki:
         return merged
 
     def _extract_json_robust(self, text: str) -> Optional[dict[str, Any]]:
-        """
-        LLMの出力からJSONまたはYAMLを極めて堅牢に抽出する。
-        1. Markdownコードブロックを探す (json, yaml, 無し)
-        2. 最初の { と 最後の } を探して抽出を試みる
-        3. YAMLとしてパースを試みる
-        """
-        import json
-        import re
-        import yaml
-
-        # 1. Markdownブロック抽出
-        for lang in ['json', 'yaml', '']:
-            pattern = rf"```{lang}\s*(.*?)\s*```"
-            match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-            if match:
-                content = match.group(1).strip()
-                # 試しにJSONパース
-                try:
-                    return json.loads(content)
-                except:
-                    pass
-                # 試しにYAMLパース
-                try:
-                    y = yaml.safe_load(content)
-                    if isinstance(y, dict): return y
-                except:
-                    pass
-
-        # 2. ブレースマッチングによる抽出
-        brace_match = re.search(r"(\{.*\})", text, re.DOTALL)
-        if brace_match:
-            try:
-                return json.loads(brace_match.group(1).strip())
-            except:
-                pass
-
-        # 3. 全体をYAMLとしてパース（最も寛容）
-        try:
-            # 極端に汚い入力を考慮して不要なプレフィックスを除去
-            cleaned = text.strip()
-            if cleaned.lower().startswith("json"): cleaned = cleaned[4:].strip()
-            if cleaned.lower().startswith("yaml"): cleaned = cleaned[4:].strip()
-            
-            y = yaml.safe_load(cleaned)
-            if isinstance(y, dict): return y
-        except:
-            pass
-
-        return None
+        """LLMの出力からJSONまたはYAMLを極めて堅牢に抽出する（共通ユーティリティを使用）"""
+        from gozen.utils.json_parser import parse_llm_json
+        return parse_llm_json(text)
 
     async def create_official_document(
         self,

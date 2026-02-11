@@ -22,25 +22,9 @@ def _safe_truncate(text: str, max_len: int = 30) -> str:
 
 
 def _parse_json_response(content: str) -> Optional[dict[str, Any]]:
-    """LLMレスポンスからJSONを抽出・パースする（強化版）"""
-    import re
-    text = content.strip()
-
-    # 1. マークダウンコードブロックの抽出
-    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-    if match:
-        text = match.group(1)
-    else:
-        # 2. 最初と最後の波括弧を探す
-        start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1:
-            text = text[start : end + 1]
-
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        return None
+    """LLMレスポンスからJSONを抽出・パースする（共通ユーティリティを使用）"""
+    from gozen.utils.json_parser import parse_llm_json
+    return parse_llm_json(content)
 
 
 class KaigunSanbou:
@@ -57,9 +41,10 @@ class KaigunSanbou:
      それが実装できるかは陸軍に託す。」
     """
 
-    def __init__(self) -> None:
+    def __init__(self, security_level: Optional[str] = None) -> None:
         self.role = "海軍参謀"
         self.model = "Claude"
+        self.security_level = security_level
         self.philosophy = "理想・論理・スケーラビリティ"
         self._character = get_character("kaigun_sanbou")
 
@@ -85,7 +70,7 @@ class KaigunSanbou:
         from gozen.api_client import get_client
         from pathlib import Path
 
-        client = get_client("kaigun_sanbou", security_level=task.get("security_level"))
+        client = get_client("kaigun_sanbou", security_level=self.security_level)
 
         # ペルソナプロンプトを読み込む
         prompt_file = Path(__file__).parent.parent.parent / "prompts" / "kaigun_sanbou.prompt"

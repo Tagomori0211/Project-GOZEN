@@ -637,33 +637,41 @@ class MockClient(BaseAPIClient):
         super().__init__(rank, security_level, retry_config)
 
     async def _call_api(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
-        # ランダムな応答を生成
-        responses = [
-            "承知いたしました。提案を作成します。",
-            "異議あり！その方針にはリスクがあります。",
-            "了解。ドキュメントをまとめます。",
-            "これはモックの応答です。",
-        ]
+        # プロンプトの内容に応じて構造化データを生成
+        await asyncio.sleep(1.0) # 擬似レイテンシ
         
-        # プロンプトの内容に応じて少し変化させる（簡易）
-        content = ""
-        if "提案" in prompt:
-            content = "【海軍提案】\nクラウドネイティブな構成を推奨します。\n- k8s使用\n- ArgoCD導入"
-        elif "異議" in prompt:
-            content = "【陸軍異議】\n運用コストが高すぎます。VMベースで十分です。"
-        elif "公文書" in prompt:
-            content = "# 公文書\n\n本件、海軍案を採択する。"
+        lower_prompt = prompt.lower()
+        
+        if "提案" in prompt or "proposal" in lower_prompt:
+            content = json.dumps({
+                "title": "【Mock】次世代システム基盤の構築",
+                "summary": "クラウドネイティブな構成を採用し、スケーラビリティと保守性を極限まで高めます。k8sとArgoCDを主軸に据えます。",
+                "key_points": ["Kubernetesによる自動復旧", "GitOpsによる完全自動デプロイ", "マイクロサービスアーキテクチャ"]
+            }, ensure_ascii=False)
+        elif "異議" in prompt or "objection" in lower_prompt:
+             content = json.dumps({
+                "title": "【Mock】コストと運用の懸念",
+                "summary": "k8sはオーバーエンジニアリングです。現在の要員スキルと予算を考慮すると、VMベースのシンプルな構成が現実的です。",
+                "key_points": ["学習コストの高さ", "クラウド破産の回避", "既存資産の有効活用"]
+            }, ensure_ascii=False)
+        elif "統合" in prompt or "synthesize" in lower_prompt or "integrated" in lower_prompt:
+            content = json.dumps({
+                "title": "【Mock】段階的近代化案",
+                "summary": "海軍の理想（k8s）を認めつつも、陸軍の懸念を考慮し、まずは一部の主要機能をマネージドk8sで先行実装し、残りをVMで維持する段階的移行を提案します。",
+                "key_points": ["マネージドサービスの活用", "ハイブリッド構成", "段階的なスキル転換"]
+            }, ensure_ascii=False)
+        elif "公文書" in prompt or "official" in lower_prompt:
+            content = json.dumps({
+                "markdown_content": "# 御前会議 決定公文書\n\n本件、国家元首の裁定に基づき「段階的近代化案」を正式に採択する。\n\n## 理由\n理想と現実の均衡が最も取れているため。",
+                "yaml_content": {"status": "adopted", "decision": "integrated"},
+                "filename": "mock_decision.md"
+            }, ensure_ascii=False)
         else:
-            content = random.choice(responses)
-
-        await asyncio.sleep(0.5) # 擬似レイテンシ
+            content = "モックの自由記述応答です。任務成功を祈ります。"
 
         return {
             "content": content,
-            "usage": {
-                "input_tokens": 100,
-                "output_tokens": 100,
-            },
+            "usage": {"input_tokens": 100, "output_tokens": 100},
             "model": "mock-model",
         }
 
@@ -685,7 +693,10 @@ def get_client(
     sl_enum = None
     if security_level:
         try:
-            sl_enum = SecurityLevel(security_level)
+            if isinstance(security_level, SecurityLevel):
+                sl_enum = security_level
+            else:
+                sl_enum = SecurityLevel(security_level)
         except ValueError:
             pass
 

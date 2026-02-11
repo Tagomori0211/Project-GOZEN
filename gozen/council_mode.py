@@ -11,9 +11,23 @@ PCA（Propose-Challenge-Arbitrate）サイクルを実装する。
 
 from __future__ import annotations
 
+import asyncio
+from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional, Literal
+
+class SessionPhase(Enum):
+    PICKING = "picking"
+    PICKED = "picked"
+    PROPOSAL = "proposal"
+    OBJECTION = "objection"
+    ARBITRATION = "arbitration"
+    INTEGRATION = "integration"
+    MERGED = "merged"
+    DECISION = "decision"
+    VALIDATION = "validation"
+    COMPLETE = "complete"
 
 class CouncilMode(Enum):
     """御前会議モード"""
@@ -31,10 +45,20 @@ class CouncilSessionState:
     """御前会議セッション状態"""
     session_id: str
     mission: str
+    security_level: str = "public"
     round: int = 1
     max_rounds: int = 5
     status: str = "initialized"
     history: list[dict] = field(default_factory=list)
+    current_decision_future: Optional[asyncio.Future] = None
+    
+    # 承認済みドキュメント
+    adopted_proposal: Optional[dict[str, Any]] = None
+    
+    # Human-in-the-loop: ユーザーの決断を待つためのFuture
+    
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
 
 class ArbitrationResult(Enum):
     """裁定結果"""
