@@ -101,23 +101,31 @@ class Shoki:
             session_id = notification.get("session_id", "UNKNOWN")
             
             prompt = f"""
-あなたは御前会議の書記官です。
-以下の決定事項に基づき、正式な「御前会議決定公文書」を作成してください。
-フォーマットはMarkdownとYAMLのハイブリッド形式とします。
-絶対に日本語で出力してください。英語は禁止です。
+あなたは帝国海軍・軍令部の書記官である。
+以下の決定事項に基づき、正式な「御前会議決定公文書」を作成せよ。
 
-【決定事項】
+【制約】
+・文末は「～ナリ」「～トス」「～ノ件」といった、硬質な軍事公文書体（疑似的な書き下し文）を用いること。
+・英語、絵文字、および箇条書き記号（- や *）は厳禁とする。項目の列挙には「一、」「二、」といった漢数字を用いること。
+・マークダウンの太字（**）などの装飾も一切禁止する。
+・出力は必ず日本語とし、構成は以下の通りとせよ：
+    1. 標題（例：機密第〇〇号）
+    2. 日付（決定日時）
+    3. 宛名（全軍将兵 殿 等）
+    4. 本文（決定事項の核心）
+    5. 結語（以上）
+
+【決定事項情報】
 セッションID: {session_id}
-採択案: {adopted.get('title', 'N/A')}
+採択案タイトル: {adopted.get('title', 'N/A')}
 概要: {adopted.get('summary', 'N/A')}
-要点: {', '.join(adopted.get('key_points') or (['. '.join(c.get('detail', '') for c in adopted.get('concerns', []))] if 'concerns' in adopted else []))}
 決定日時: {notification.get('notified_at', datetime.now().isoformat())}
 
 【出力形式】
-JSON形式で出力してください:
+必ず以下のJSON形式で出力せよ。
 {{
-  "markdown_content": "# 御前会議 決定公文書\\n\\n...",
-  "yaml_content": {{ ...構造化データ... }},
+  "markdown_content": "（ここに公文書本文を記述）",
+  "yaml_content": {{ "session_id": "{session_id}", "status": "approved" }},
   "filename": "{session_id}_decision.md"
 }}
 """

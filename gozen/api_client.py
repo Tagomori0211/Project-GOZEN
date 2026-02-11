@@ -673,12 +673,12 @@ class MockClient(BaseAPIClient):
             }, ensure_ascii=False)
         elif "公文書" in prompt or "official" in lower_prompt:
             content = json.dumps({
-                "markdown_content": "# 御前会議 決定公文書\n\n本件、国家元首の裁定に基づき「段階的近代化案」を正式に採択する。\n\n## 理由\n理想と現実の均衡が最も取れているため。",
-                "yaml_content": {"status": "adopted", "decision": "integrated"},
+                "markdown_content": "機密第一〇二四号\n令和六年二月十一日\n全軍将兵 殿\n\n【御前会議決定公文書】\n\n一、本件、天憲ノ裁可に基き「段階的近代化案」を正式に採択ス。\n二、各兵団は速やかに実行準備を整ふべし。\n\n以上",
+                "yaml_content": {"status": "approved", "session_id": "MOCK-SESSION"},
                 "filename": "mock_decision.md"
             }, ensure_ascii=False)
         else:
-            content = "モックの自由記述応答です。任務成功を祈ります。"
+            content = "モックの自由記述応答ナリ。任務成功を祈ル。"
 
         return {
             "content": content,
