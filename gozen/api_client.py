@@ -260,8 +260,8 @@ class BaseAPIClient(ABC):
 class AnthropicClient(BaseAPIClient):
     """Anthropic API クライアント（海兵、提督、艦長用）"""
 
-    def __init__(self, rank: str, retry_config: Optional[RetryConfig] = None) -> None:
-        super().__init__(rank, retry_config)
+    def __init__(self, rank: str, security_level: Optional[SecurityLevel] = None, retry_config: Optional[RetryConfig] = None) -> None:
+        super().__init__(rank, security_level, retry_config)
         self.api_key = os.getenv("ANTHROPIC_API_KEY")
         self._client: Any = None
 
@@ -321,8 +321,8 @@ class AnthropicClient(BaseAPIClient):
 class GeminiClient(BaseAPIClient):
     """Gemini API クライアント（士官、歩兵、陸軍参謀用）"""
 
-    def __init__(self, rank: str, retry_config: Optional[RetryConfig] = None) -> None:
-        super().__init__(rank, retry_config)
+    def __init__(self, rank: str, security_level: Optional[SecurityLevel] = None, retry_config: Optional[RetryConfig] = None) -> None:
+        super().__init__(rank, security_level, retry_config)
         self.api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         self._client: Any = None
 
@@ -385,8 +385,8 @@ class ClaudeCodeClient(BaseAPIClient):
 
     DEFAULT_TIMEOUT = 300  # 秒
 
-    def __init__(self, rank: str, retry_config: Optional[RetryConfig] = None) -> None:
-        super().__init__(rank, retry_config)
+    def __init__(self, rank: str, security_level: Optional[SecurityLevel] = None, retry_config: Optional[RetryConfig] = None) -> None:
+        super().__init__(rank, security_level, retry_config)
         self._claude_bin: Optional[str] = None
 
     def _find_claude_binary(self) -> str:
@@ -532,8 +532,8 @@ class ClaudeCodeClient(BaseAPIClient):
 class OllamaClient(BaseAPIClient):
     """Ollama ローカルLLM クライアント（全階級共通）"""
 
-    def __init__(self, rank: str, retry_config: Optional[RetryConfig] = None) -> None:
-        super().__init__(rank, retry_config)
+    def __init__(self, rank: str, security_level: Optional[SecurityLevel] = None, retry_config: Optional[RetryConfig] = None) -> None:
+        super().__init__(rank, security_level, retry_config)
         self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.num_threads = int(os.getenv("OLLAMA_NUM_THREADS", "16"))
         self._session: Any = None
@@ -632,6 +632,9 @@ class OllamaClient(BaseAPIClient):
 
 class MockClient(BaseAPIClient):
     """Mock クライアント（検証用）"""
+    
+    def __init__(self, rank: str, security_level: Optional[SecurityLevel] = None, retry_config: Optional[RetryConfig] = None) -> None:
+        super().__init__(rank, security_level, retry_config)
 
     async def _call_api(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
         # ランダムな応答を生成

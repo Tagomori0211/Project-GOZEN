@@ -99,6 +99,7 @@ class Shoki:
 あなたは御前会議の書記官です。
 以下の決定事項に基づき、正式な「御前会議決定公文書」を作成してください。
 フォーマットはMarkdownとYAMLのハイブリッド形式とします。
+絶対に日本語で出力してください。英語は禁止です。
 
 【決定事項】
 セッションID: {session_id}
@@ -304,6 +305,7 @@ gozen decide --task <TASK_ID> --action <ACTION>
             client = get_client("shoki", security_level=self.security_level)
 
             prompt = f"""以下の海軍提案と陸軍異議を統合し、折衷案を作成せよ。
+            出力は必ず日本語で行うこと。英語は禁止する。
 
 【元首指示】
 {merge_instruction}
@@ -387,6 +389,7 @@ gozen decide --task <TASK_ID> --action <ACTION>
 あなたは御前会議の書記です。
 国家元首の裁定により、以下の案が採択されました。
 「裁定通達書」を作成するために必要な情報をJSON形式で出力してください。
+出力は必ず日本語で行うこと。英語は禁止する。
 
 【裁定結果】
 ・採択: {adopted_type}（{'海軍案' if adopted_type == 'kaigun' else '陸軍案' if adopted_type == 'rikugun' else '統合案'}）

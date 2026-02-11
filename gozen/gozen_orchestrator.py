@@ -16,6 +16,7 @@ from typing import Any, Literal, Optional
 from gozen.dashboard import get_dashboard
 from gozen.kaigun_sanbou import create_proposal as kaigun_create_proposal
 from gozen.rikugun_sanbou import create_proposal as rikugun_create_proposal
+from gozen.rikugun_sanbou import create_objection as rikugun_create_objection
 from gozen.council_mode import (
     CouncilSessionState,
     ArbitrationResult,
@@ -37,7 +38,7 @@ class GozenOrchestrator:
 
     def __init__(
         self,
-        default_mode: Literal["sequential", "parallel"] = "parallel",
+        default_mode: Literal["sequential", "parallel"] = "sequential",
         plan: Literal["pro", "max5x", "max20x"] = "pro",
         council_mode: Literal["council", "execute"] = "council",
         security_level: Optional[str] = None,
@@ -83,17 +84,27 @@ class GozenOrchestrator:
         return state
 
     async def generate_proposals(self, session_id: str, task: dict[str, Any]) -> dict[str, Any]:
-        """海軍・陸軍の提案を並列生成"""
-        print(f"\n🏯 [御前会議] 提案生成開始: {session_id}")
+        """海軍・陸軍の提案を生成（モードに応じて並列/直列）"""
+        print(f"\n🏯 [御前会議] 提案生成開始: {session_id} (Mode: {self.mode})")
         
-        kaigun_task, rikugun_task = await asyncio.gather(
-            kaigun_create_proposal(task),
-            rikugun_create_proposal(task)
-        )
-        
-        # キューに保存
-        self._save_to_queue("proposal", f"{session_id}_kaigun", kaigun_task)
-        self._save_to_queue("proposal", f"{session_id}_rikugun", rikugun_task)
+        if self.mode == "sequential":
+            # 1. 海軍提案
+            kaigun_task = await kaigun_create_proposal(task)
+            self._save_to_queue("proposal", f"{session_id}_kaigun", kaigun_task)
+            
+            # 2. 陸軍異議（海軍提案への反論）
+            rikugun_task = await rikugun_create_objection(task, kaigun_task)
+            self._save_to_queue("proposal", f"{session_id}_rikugun", rikugun_task)
+            
+        else:
+            # 並列生成（既存ロジック・陸軍は独自提案）
+            kaigun_task, rikugun_task = await asyncio.gather(
+                kaigun_create_proposal(task),
+                rikugun_create_proposal(task)
+            )
+            
+            self._save_to_queue("proposal", f"{session_id}_kaigun", kaigun_task)
+            self._save_to_queue("proposal", f"{session_id}_rikugun", rikugun_task)
         
         return {
             "kaigun_proposal": kaigun_task,

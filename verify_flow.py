@@ -34,7 +34,7 @@ def test_full_flow():
     
     # 2. Wait for Proposals (awaiting_arbitration)
     print("[2] Waiting for proposals...")
-    for _ in range(30): # Wait up to 30s
+    for _ in range(60): # Wait up to 60s
         time.sleep(1)
         r = requests.get(f"{BASE_URL}/council/{session_id}/status")
         r.raise_for_status()

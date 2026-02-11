@@ -243,7 +243,7 @@ async def start_council(request: TaskRequest, background_tasks: BackgroundTasks)
     
     # Initialize orchestrator for this session
     orchestrator = GozenOrchestrator(
-        default_mode="parallel",
+        default_mode="sequential",
         plan=request.plan or "pro",
         council_mode="council",
         security_level=request.security_level
@@ -432,7 +432,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 mission = data.get("mission")
                 # Initialize orchestrator if not exists (it shouldn't for new session)
                 orchestrator = GozenOrchestrator(
-                    default_mode="parallel",
+                    default_mode="sequential",
                     plan="pro",
                     council_mode="council"
                 )

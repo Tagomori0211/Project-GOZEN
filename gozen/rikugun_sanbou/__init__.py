@@ -149,8 +149,9 @@ class RikugunSanbou:
     ) -> dict[str, Any]:
         """APIを呼び出して異議を生成"""
         from gozen.api_client import get_client
-
-        client = get_client("rikugun_sanbou")
+        
+        security_level = task.get("security_level")
+        client = get_client("rikugun_sanbou", security_level)
 
         char = self._character
         requirements = task.get("requirements", [])
