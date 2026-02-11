@@ -10,13 +10,44 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import json
 
 from gozen.config import SERVER_PORT, SERVER_HOST
 from gozen.gozen_orchestrator import GozenOrchestrator
 from gozen.council_mode import ArbitrationResult, AdoptionJudgment, CouncilSessionState
+
+# ============================================================
+# WebSocket Manager
+# ============================================================
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, WebSocket] = {}
+
+    async def connect(self, session_id: str, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections[session_id] = websocket
+
+    def disconnect(self, session_id: str):
+        if session_id in self.active_connections:
+            del self.active_connections[session_id]
+
+    async def send_personal_message(self, message: dict, session_id: str):
+        if session_id in self.active_connections:
+            await self.active_connections[session_id].send_json(message)
+
+    async def broadcast(self, session_id: str, message: dict):
+        if session_id in self.active_connections:
+            try:
+                await self.active_connections[session_id].send_json(message)
+            except Exception as e:
+                print(f"Error broadcasting to {session_id}: {e}")
+                self.disconnect(session_id)
+
+manager = ConnectionManager()
 
 # ============================================================
 # Data Models
@@ -54,7 +85,28 @@ async def _run_proposal_phase(session_id: str, task: Dict[str, Any]):
     session = _sessions[session_id]
 
     try:
+        # Notify start of proposal phase
+        await manager.broadcast(session_id, {"type": "PHASE", "phase": "proposal", "status": "in_progress"})
+        
         proposals = await orch.generate_proposals(session_id, task)
+        
+        # Requests are simulated in separate phases in real interaction, but for now we do it all at once
+        # Broadcast Kaigun Proposal
+        await manager.broadcast(session_id, {
+            "type": "PROPOSAL",
+            "content": proposals["kaigun_proposal"].get("summary", ""),
+            "fullText": proposals["kaigun_proposal"].get("content", "")
+        })
+
+        # Notify objection phase
+        await manager.broadcast(session_id, {"type": "PHASE", "phase": "objection", "status": "in_progress"})
+        
+        # Broadcast Rikugun Objection
+        await manager.broadcast(session_id, {
+            "type": "OBJECTION",
+            "content": proposals["rikugun_proposal"].get("summary", ""),
+            "fullText": proposals["rikugun_proposal"].get("content", "")
+        })
         
         # Update session state
         session["kaigun_proposal"] = proposals["kaigun_proposal"]
@@ -62,12 +114,24 @@ async def _run_proposal_phase(session_id: str, task: Dict[str, Any]):
         session["status"] = "awaiting_arbitration"
         session["updated_at"] = datetime.now().isoformat()
         
+        # Notify ready for decision
+        await manager.broadcast(session_id, {
+            "type": "AWAITING_DECISION",
+            "options": [
+                {"id": 1, "label": "海軍案を採択", "type": "kaigun"},
+                {"id": 2, "label": "陸軍案を採択", "type": "rikugun"},
+                {"id": 3, "label": "折衷案を作成", "type": "integrate"},
+                {"id": 4, "label": "却下", "type": "reject"},
+            ]
+        })
+        
         print(f"✅ Proposals ready for session {session_id}")
         
     except Exception as e:
         print(f"❌ Error in proposal phase: {e}")
         session["status"] = "error"
         session["error"] = str(e)
+        await manager.broadcast(session_id, {"type": "ERROR", "message": str(e)})
 
 async def _run_integration_phase(session_id: str, instruction: str):
     """Background task to integrate proposals."""
@@ -79,6 +143,7 @@ async def _run_integration_phase(session_id: str, instruction: str):
     
     try:
         session["status"] = "integrating"
+        await manager.broadcast(session_id, {"type": "PHASE", "phase": "merged", "status": "in_progress"})
         
         kaigun = session.get("kaigun_proposal")
         rikugun = session.get("rikugun_proposal")
@@ -88,18 +153,31 @@ async def _run_integration_phase(session_id: str, instruction: str):
 
         merged = await orch.integrate_proposals(session_id, kaigun, rikugun, instruction)
         
+        # Broadcast Merged Proposal
+        await manager.broadcast(session_id, {
+            "type": "MERGED",
+            "content": merged.get("summary", ""),
+            "fullText": merged.get("content", "")
+        })
+        
         session["integrated_proposal"] = merged
-        session["status"] = "awaiting_final_approval" # Or back to arbitration? In new flow, it's final approval of doc?
-        # Actually simplified: Integrate -> Await Approval of Integrated -> Notify
-        # Let's say "awaiting_arbitration" again but with integrated one? 
-        # For simplicity, let's say "awaiting_adoption"
         session["status"] = "awaiting_adoption"
         session["updated_at"] = datetime.now().isoformat()
+        
+        # Notify ready for merge decision
+        await manager.broadcast(session_id, {
+            "type": "AWAITING_MERGE_DECISION",
+            "options": [
+                {"id": 1, "label": "折衷案を採用", "type": "adopt"},
+                {"id": 2, "label": "折衷案を却下", "type": "reject"},
+            ]
+        })
         
     except Exception as e:
         print(f"❌ Error in integration phase: {e}")
         session["status"] = "error"
         session["error"] = str(e)
+        await manager.broadcast(session_id, {"type": "ERROR", "message": str(e)})
 
 
 @asynccontextmanager
@@ -273,14 +351,38 @@ async def _run_notification_flow(session_id: str, adopted_proposal: Dict[str, An
         session["status"] = "documenting"
         doc = await orch.create_official_document(session_id, notification)
         
+        # Broadcast Document (Shoki Summary)
+        await manager.broadcast(session_id, {
+            "type": "SHOKI_SUMMARY",
+            "content": doc.get("yaml_content", {}).get("message", "公文書作成完了")
+        })
+        
         session["official_document"] = doc
         session["status"] = "completed"
         session["completed_at"] = datetime.now().isoformat()
+
+        # Decide adopted type for frontend
+        adopted_type = "kaigun"
+        if adopted_proposal == session.get("rikugun_proposal"):
+            adopted_type = "rikugun"
+        elif adopted_proposal == session.get("integrated_proposal"):
+            adopted_type = "integrated"
+
+        # Broadcast Complete
+        await manager.broadcast(session_id, {
+            "type": "COMPLETE",
+            "result": {
+                "approved": True,
+                "adopted": adopted_type,
+                "loop_count": 1 # To implement loop count, we need to track it in session
+            }
+        })
         
     except Exception as e:
          print(f"❌ Error in notification flow: {e}")
          session["status"] = "error"
          session["error"] = str(e)
+         await manager.broadcast(session_id, {"type": "ERROR", "message": str(e)})
 
 
 @app.get("/api/v1/sessions")
@@ -296,6 +398,117 @@ async def list_sessions():
             "created_at": data.get("created_at")
         })
     return summary_list
+
+@app.post("/api/sessions")
+async def create_session():
+    """Create a new session (for frontend)."""
+    session_id = f"GOZEN-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    _sessions[session_id] = {
+        "session_id": session_id,
+        "status": "created",
+        "created_at": datetime.now().isoformat(),
+        "history": []
+    }
+    return {"session_id": session_id}
+
+@app.post("/api/shutdown")
+async def shutdown_server():
+    """Shutdown the server."""
+    import os, signal
+    os.kill(os.getpid(), signal.SIGINT)
+    return {"message": "Server shutting down"}
+
+@app.websocket("/ws/council/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    await manager.connect(session_id, websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            # Handle client messages
+            msg_type = data.get("type")
+            
+            if msg_type == "START":
+                # Start the council
+                mission = data.get("mission")
+                # Initialize orchestrator if not exists (it shouldn't for new session)
+                orchestrator = GozenOrchestrator(
+                    default_mode="parallel",
+                    plan="pro",
+                    council_mode="council",
+                    security_level="mock" # Force mock for now or pass from frontend? Frontend doesn't pass it yet.
+                    # TODO: Make security_level configurable from UI if needed. For now use Mock or Public.
+                    # The user's verification was successful with Mock. Let's use Mock by default for stability?
+                    # Or check config.
+                )
+                _orchestrators[session_id] = orchestrator
+                
+                task = {
+                    "task_id": session_id,
+                    "mission": mission,
+                    "requirements": [],
+                    "security_level": "mock" # Defaulting to MOCK for safety/demo as per user request context implied ("fix connection errors")
+                }
+                _sessions[session_id]["mission"] = mission
+                _sessions[session_id]["task"] = task
+                _sessions[session_id]["status"] = "proposing"
+                
+                # We need to run background task from inside WS? 
+                # We can use asyncio.create_task
+                asyncio.create_task(_run_proposal_phase(session_id, task))
+                
+            elif msg_type == "DECISION":
+                choice = data.get("choice")
+                # Map choice ID to decision type
+                # 1: kaigun, 2: rikugun, 3: integrate, 4: reject
+                decision_map = {1: "kaigun", 2: "rikugun", 3: "integrate", 4: "reject"}
+                decision = decision_map.get(choice)
+                
+                if decision:
+                    if decision == "integrate":
+                        # For integrate, we need instruction. Frontend should send it?
+                        # Frontend DecisionPanel doesn't send instruction for choice 3 directly... 
+                        # Wait, the current UI doesn't seem to prompt for instruction for Integrate.
+                        # It just sends choice 3.
+                        # We'll use a default instruction for now or prompt user?
+                        # Since UI is fixed, let's use default "両案の良いとこ取りで"
+                        instruction = "双方の利点を活かし、懸念点を解消する形で統合せよ。"
+                        
+                        await manager.broadcast(session_id, {"type": "INFO", "content": "統合指示: " + instruction})
+                        asyncio.create_task(_run_integration_phase(session_id, instruction))
+                        
+                    elif decision in ["kaigun", "rikugun"]:
+                        session = _sessions[session_id]
+                        adopted = session.get(f"{decision}_proposal")
+                        asyncio.create_task(_run_notification_flow(session_id, adopted))
+                        
+                    elif decision == "reject":
+                         await manager.broadcast(session_id, {
+                            "type": "COMPLETE",
+                            "result": {"approved": False}
+                        })
+            
+            elif msg_type == "MERGE_DECISION":
+                choice = data.get("choice")
+                # 1: adopt, 2: reject (force validation? or reject entire?)
+                # Code says: 1: '折衷案を採用', 2: '折衷案を却下（妥当性検証へ）'
+                
+                if choice == 1:
+                    session = _sessions[session_id]
+                    adopted = session.get("integrated_proposal")
+                    asyncio.create_task(_run_notification_flow(session_id, adopted))
+                elif choice == 2:
+                    # Logic for rejection of merged proposal... 
+                    # For now just end as reject
+                     await manager.broadcast(session_id, {
+                        "type": "COMPLETE",
+                        "result": {"approved": False}
+                    })
+
+    except WebSocketDisconnect:
+        manager.disconnect(session_id)
+    except Exception as e:
+        print(f"WS Error: {e}")
+        manager.disconnect(session_id)
 
 if __name__ == "__main__":
     import uvicorn

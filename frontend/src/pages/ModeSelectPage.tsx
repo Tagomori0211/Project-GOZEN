@@ -4,7 +4,7 @@ import type { CouncilMode } from '../types/council'
 
 function ModeSelectPage() {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<CouncilMode>('council')
+  const [mode] = useState<CouncilMode>('council')
   const [mission, setMission] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -39,47 +39,14 @@ function ModeSelectPage() {
           作戦立案
         </h1>
 
-        {/* モード選択 */}
-        <div className="mb-8">
-          <label className="block text-slate-400 text-sm mb-3">作戦形式</label>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => setMode('council')}
-              className={`p-4 border-2 rounded-lg text-left transition-all
-                ${mode === 'council'
-                  ? 'border-genshu-500 bg-genshu-500/10'
-                  : 'border-slate-700 hover:border-slate-600'
-                }`}
-            >
-              <div className="font-medium text-slate-200 mb-1">会議モード</div>
-              <div className="text-sm text-slate-400">
-                海軍参謀 vs 陸軍参謀の討議のみ
-              </div>
-            </button>
-
-            <button
-              onClick={() => setMode('execute')}
-              className={`p-4 border-2 rounded-lg text-left transition-all
-                ${mode === 'execute'
-                  ? 'border-genshu-500 bg-genshu-500/10'
-                  : 'border-slate-700 hover:border-slate-600'
-                }`}
-            >
-              <div className="font-medium text-slate-200 mb-1">作戦実行モード</div>
-              <div className="text-sm text-slate-400">
-                討議後、実行部隊を展開
-              </div>
-            </button>
-          </div>
-        </div>
 
         {/* 任務入力 */}
         <div className="mb-8">
-          <label className="block text-slate-400 text-sm mb-3">任務</label>
+          <label className="block text-slate-400 text-sm mb-3">議題</label>
           <textarea
             value={mission}
             onChange={(e) => setMission(e.target.value)}
-            placeholder="任務を入力してください..."
+            placeholder="議題を入力してください..."
             rows={5}
             className="w-full p-4 bg-slate-800 border border-slate-700 rounded-lg
                        text-slate-200 placeholder-slate-500
