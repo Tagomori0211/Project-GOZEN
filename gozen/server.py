@@ -85,7 +85,6 @@ async def _run_proposal_phase(session_id: str, task: Dict[str, Any]):
     session = _sessions[session_id]
 
     try:
-    try:
         # Notify start of proposal phase
         await manager.broadcast(session_id, {"type": "PHASE", "phase": "proposal", "status": "in_progress"})
         
