@@ -38,9 +38,9 @@ function ChatMessage({ message }: ChatMessageProps) {
     genshu: {
       icon: '👑',
       label: '国家元首',
-      bgColor: 'bg-genshu-900/50',
-      borderColor: 'border-genshu-600',
-      iconBg: 'bg-genshu-700',
+      bgColor: 'bg-amber-900/40',
+      borderColor: 'border-amber-500',
+      iconBg: 'bg-amber-600',
     },
     system: {
       icon: '⚙️',
